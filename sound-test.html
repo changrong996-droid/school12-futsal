@@ -27,6 +27,10 @@ input[type=range]{width:160px;accent-color:var(--ink)}
 .vs .btn{flex:1 1 0;min-width:64px;font-weight:700}
 .surf{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
 .surf .btn{min-height:34px;padding:0 10px;font-size:13px}
+.pick{display:flex;gap:6px;align-items:center;margin-top:10px;font-size:13px;color:var(--muted)}
+.pick .btn{min-height:32px;padding:0 10px;font-size:13px}
+.pick .btn[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#fff}
+.submit{margin-top:18px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .surf .btn[aria-pressed=true]{background:var(--ink);color:var(--paper)}
 footer{margin-top:24px;color:var(--muted);font-size:12px}
 a{color:var(--accent)}
@@ -44,6 +48,7 @@ a{color:var(--accent)}
     <span class="status" id="status">需要先点“开启声音”。</span>
   </div>
   <div class="grid" id="grid"></div>
+  <div class="submit"><button class="btn primary" id="sendBtn">提交我的选择</button><span class="status" id="pickStatus">每类点“我选”下面的字母，选好后提交。会打开一个预填好的 GitHub Issue，点“Create”即可。</span></div>
   <footer>回到 <a href="./">比赛页面</a>。部分版本使用 Freesound 上的 CC0（公共领域）录音，出处见 README。</footer>
 </div>
 <script>
@@ -839,6 +844,13 @@ function combo(e, t0) {
   return 16;
 }
 const LETTERS = ['A', 'B', 'C'];
+let picks = {}; try { picks = JSON.parse(localStorage.getItem('s12picks') || '{}'); } catch (e) { }
+function savePicks() { try { localStorage.setItem('s12picks', JSON.stringify(picks)); } catch (e) { } const n = Object.values(picks).filter(Boolean).length; $('pickStatus').textContent = `已选 ${n} / ${Object.keys(V).length} 类。`; }
+function sendPicks() {
+  const lines = Object.entries(V).map(([k, c]) => `${k} | ${c.title} | ${picks[k] || '-'}`);
+  const body = '盲听选择（sound-test v1）\n\n```\n' + lines.join('\n') + '\n```\n\nPICKS=' + JSON.stringify(picks);
+  window.open('https://github.com/changrong996-droid/school12-futsal/issues/new?title=' + encodeURIComponent('盲听选择') + '&labels=&body=' + encodeURIComponent(body), '_blank');
+}
 for (const [key, cat] of Object.entries(V)) {
   const card = document.createElement('div'); card.className = 'card';
   card.innerHTML = `<h2>${cat.title}</h2><p>${cat.desc}</p>`;
@@ -857,9 +869,18 @@ for (const [key, cat] of Object.entries(V)) {
     b.onclick = async () => { if (!ready) return; stopAll(); b.classList.add('playing'); const t0 = ctx.currentTime + 0.08; const d = await cat.v[vk](t0); setTimeout(() => b.classList.remove('playing'), d * 1000); };
     row.append(b);
   });
-  card.append(row); $('grid').append(card);
+  card.append(row);
+  const pk = document.createElement('div'); pk.className = 'pick'; pk.append('我选：');
+  (ORDER[key] || Object.keys(cat.v)).forEach((vk, i) => {
+    const b = document.createElement('button'); b.className = 'btn'; b.textContent = LETTERS[i]; b.dataset.k = key; b.dataset.l = LETTERS[i];
+    b.setAttribute('aria-pressed', String(picks[key] === LETTERS[i]));
+    b.onclick = () => { picks[key] = picks[key] === LETTERS[i] ? undefined : LETTERS[i]; pk.querySelectorAll('.btn').forEach(x => x.setAttribute('aria-pressed', String(picks[key] === x.dataset.l))); savePicks(); };
+    pk.append(b);
+  });
+  card.append(pk); $('grid').append(card);
 }
 $('startBtn').onclick = start;
+$('sendBtn').onclick = sendPicks;
 $('stopBtn').onclick = stopAll;
 $('vol').oninput = e => { vol = e.target.value / 100; for (const x of live) x.setVolume(vol * vol); };
 </script>
