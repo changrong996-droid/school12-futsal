@@ -1,0 +1,2284 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>第12学校五人制足球 · 像素立体模型</title>
+<meta name="description" content="漂浮小岛上的校园五人制足球像素立体模型，内置实时比赛引擎。">
+<style>
+:root{--ink:#1a1423;--paper:#f6f2ea;--card:#fffdf8;--muted:#6b6577;--line:#ddd5c6;--accent:#c0213a}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font:15px/1.5 "PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC","Noto Sans SC",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+:root{--mono:ui-monospace,SFMono-Regular,Menlo,monospace,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC","Noto Sans SC",sans-serif;--cjk:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC","Noto Sans SC",sans-serif}
+.wrap{max-width:1200px;margin:0 auto;padding:22px 22px 28px}
+.kicker{font:700 12px/1 var(--cjk);letter-spacing:.2em;color:var(--accent)}
+h1{font:800 clamp(26px,4.2vw,42px)/1.15 var(--cjk);margin:8px 0 6px;letter-spacing:.02em}
+.dek{color:var(--muted);margin:0 0 18px;max-width:62ch}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start}
+.stage{position:relative;background:#6fb3e0;border:1px solid var(--line);aspect-ratio:16/10;overflow:hidden;border-radius:6px;user-select:none;-webkit-user-select:none}
+#view{position:absolute;inset:0;width:100%;height:100%;display:block;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:none;cursor:crosshair}
+.hud{position:absolute;left:8px;top:8px;display:flex;flex-direction:column;gap:4px;pointer-events:none;font:700 12px/1 var(--mono);color:#fffdf8}
+.hud .row{background:rgba(26,20,35,.82);padding:6px 8px;border-radius:4px;display:flex;align-items:center;gap:6px;width:max-content}
+.chip{width:9px;height:9px;border-radius:2px;display:inline-block;box-shadow:inset 0 -3px 0 var(--c2,#000)}
+.hud .sc{font-size:14px;min-width:12px;text-align:center}
+.hud .ph{color:#ffe8a0;font-weight:600}
+.hudr{position:absolute;right:8px;top:8px;display:flex;gap:4px}
+.hudr button{width:40px;height:40px;border:0;border-radius:4px;background:rgba(26,20,35,.82);color:#fffdf8;font:700 18px/1 ui-monospace,monospace;cursor:pointer}
+.hudr button:active{background:#c0213a}
+.banner{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);background:rgba(26,20,35,.86);color:#fffdf8;font:700 13px/1.3 var(--cjk);padding:8px 12px;border-radius:4px;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;max-width:94%;overflow:hidden;text-overflow:ellipsis}
+.banner.on{opacity:1}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:14px}
+.panel h2,.feed h2{font:700 12px/1 var(--cjk);letter-spacing:.14em;color:var(--muted);margin:0 0 12px}
+.ctl{margin:0 0 14px}
+.ctl:last-child{margin-bottom:0}
+.lab{display:block;font:600 12px/1.2 var(--cjk);color:var(--ink);margin:0 0 6px}
+.seg{display:flex;border:1px solid var(--ink);border-radius:6px;overflow:hidden;background:#fff}
+.seg button{flex:1 1 0;min-width:0;min-height:40px;border:0;border-right:1px solid var(--ink);background:none;font:inherit;font-size:13px;cursor:pointer;padding:0 4px;color:var(--ink)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed=true]{background:var(--ink);color:var(--paper)}
+.row2{display:flex;gap:6px;flex-wrap:wrap}
+.row2>*{flex:1 1 0;min-width:0}
+.btn{min-height:40px;padding:0 10px;border:1px solid var(--ink);background:#fff;color:var(--ink);border-radius:6px;font:inherit;font-size:13px;cursor:pointer}
+.btn:active,.btn.flash{background:var(--ink);color:var(--paper)}
+.btn[aria-pressed=true]{background:var(--ink);color:var(--paper)}
+select{min-height:40px;width:100%;border:1px solid var(--ink);border-radius:6px;background:#fff;color:var(--ink);font:inherit;font-size:13px;padding:0 8px}
+.vs{flex:0 0 auto!important;align-self:center;font:13px var(--cjk);color:var(--muted)}
+.hint{font-size:12px;color:var(--muted);margin:6px 0 0}
+.feed{margin-top:16px}
+#feed{list-style:none;margin:0;padding:0;max-height:300px;overflow:auto;border-top:1px solid var(--line)}
+#feed li{display:grid;grid-template-columns:42px 1fr;gap:8px;padding:8px 2px;border-bottom:1px solid var(--line);font-size:14px}
+#feed li b{font:700 12px/1.7 var(--mono);color:var(--accent)}
+#feed li.goal{background:#fff6d8}
+.feed.off #feed{display:none}
+.feed.off .offnote{display:block}
+.offnote{display:none;color:var(--muted);font-size:13px;margin:0}
+.loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(26,20,35,.55);color:#fffdf8;font:700 14px/1.4 var(--cjk);letter-spacing:.08em;pointer-events:none;transition:opacity .4s}
+.loading.done{opacity:0}
+footer{margin-top:26px;padding-top:12px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+@media (max-width:860px){
+  .layout{grid-template-columns:1fr}
+}
+@media (max-width:600px){
+  .wrap{padding:14px 12px 22px}
+  .layout{display:flex;flex-direction:column;gap:16px;align-items:stretch}
+  .layout>main{display:contents}
+  .stage{order:1}
+  .panel{order:2}
+  .feed{order:3}
+  .stage{aspect-ratio:4/3;margin:0 -12px;border-radius:0;border-left:0;border-right:0}
+  .feed{margin-top:0}
+}
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">像素立体模型</div>
+    <h1>第12学校的五人制足球赛</h1>
+    <p class="dek">一座漂浮的校园操场：四支原创球队在你选定的场地上，踢一场完整的五人制足球赛。</p>
+  </header>
+  <div class="layout">
+    <main>
+      <div class="stage" id="stage">
+        <canvas id="view" aria-label="校园五人制足球比赛的像素风三维画面"></canvas>
+        <div class="hud" aria-live="off">
+          <div class="row"><span class="chip" id="hChip"></span><span id="hName">主队</span><span class="sc" id="hScore">0</span>–<span class="sc" id="aScore">0</span><span id="aName">客队</span><span class="chip" id="aChip"></span></div>
+          <div class="row"><span id="clock">00:00</span><span class="ph" id="phase">球员入场</span></div>
+        </div>
+        <div class="hudr">
+          <button id="rotL" title="向左旋转" aria-label="向左旋转视角">&#x27F2;</button>
+          <button id="rotR" title="向右旋转" aria-label="向右旋转视角">&#x27F3;</button>
+          <button id="zoomIn" title="放大" aria-label="放大">+</button>
+          <button id="zoomOut" title="缩小" aria-label="缩小">&minus;</button>
+        </div>
+        <div class="banner" id="banner"></div>
+        <div class="loading" id="loading">正在搭建校园操场……</div>
+      </div>
+      <section class="feed" id="feedWrap">
+        <h2 style="margin-top:16px">比赛解说</h2>
+        <p class="offnote">解说已隐藏。</p>
+        <ol id="feed"></ol>
+      </section>
+    </main>
+    <aside class="panel" id="panel">
+      <h2>比赛控制</h2>
+      <div class="ctl">
+        <span class="lab">对阵</span>
+        <div class="row2"><select id="homeSel" aria-label="主队"></select><span class="vs">对</span><select id="awaySel" aria-label="客队"></select></div>
+        <div class="row2" style="margin-top:6px"><button class="btn" id="randomBtn">随机对阵</button></div>
+      </div>
+      <div class="ctl"><span class="lab">比赛时长（现实时间）</span><div class="seg" id="lenSeg"><button data-v="4">4 分钟</button><button data-v="8">8 分钟</button><button data-v="12">12 分钟</button><button data-v="20">20 分钟</button></div></div>
+      <div class="ctl"><span class="lab">场地材质</span><div class="seg" id="surfSeg"><button data-v="rubber">橡胶</button><button data-v="asphalt">沥青</button><button data-v="turf">人造草</button><button data-v="parquet">木地板</button></div></div>
+      <div class="ctl"><span class="lab">时段</span><div class="seg" id="todSeg"><button data-v="day">白天</button><button data-v="dusk">黄昏</button><button data-v="night">夜晚</button></div></div>
+      <div class="ctl"><span class="lab">镜头</span><div class="seg" id="camSeg"><button data-v="tv">转播跟随</button><button data-v="full">全场</button><button data-v="close">特写</button></div></div>
+      <div class="ctl"><span class="lab">观众互动</span>
+        <div class="row2"><button class="btn" id="actShoot">射门！</button><button class="btn" id="actSquare">横传</button><button class="btn" id="actLong">长传</button></div>
+        <p class="hint">也可以点击球场，标记下一脚传球的落点。</p>
+      </div>
+      <div class="ctl"><span class="lab">播放</span>
+        <div class="row2"><button class="btn" id="pauseBtn" aria-pressed="false">暂停</button><div class="seg" id="speedSeg"><button data-v="1">1×</button><button data-v="2">2×</button></div></div>
+        <div class="row2" style="margin-top:6px"><button class="btn" id="feedBtn" aria-pressed="true">解说：开</button><button class="btn" id="restartBtn">重新开始</button></div>
+      </div>
+    </aside>
+  </div>
+  <footer>所有人物、球队与美术均为原创。</footer>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* =====================================================================
+   CONFIG
+   ===================================================================== */
+const Q = new URLSearchParams(location.search);
+let DEBUG_SPEED = Math.max(1, Math.min(200, +Q.get('speed') || 1));
+const IS_PHONE = matchMedia('(max-width: 700px)').matches || (matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 700);
+const CFG = {
+  L: 40, W: 20,            // court
+  FX: 22, FZ: 12.5,        // fence half extents
+  HALF: 20 * 60,           // game seconds per half
+  rtW: IS_PHONE ? 240 : 320,
+  shadows: !IS_PHONE,
+  elev: 31 * Math.PI / 180,
+  island: { a: 47, b: 31, n: 3.2 },
+  R: 0.11,                 // ball radius (physics)
+  FIXED: 1 / 60,
+};
+const STATE = { len: +(Q.get('len') || 8), surface: 'rubber', tod: 'day', cam: IS_PHONE ? 'tv' : 'full', paused: false, speed: 1, feed: true };
+if (Q.get('surface')) STATE.surface = Q.get('surface');
+if (Q.get('tod')) STATE.tod = Q.get('tod');
+if (Q.get('cam')) STATE.cam = Q.get('cam');
+
+// seeded RNG (stable scenery)
+function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const srand = mulberry(1212);
+const rnd = Math.random;
+const rr = (a, b, r = rnd) => a + (b - a) * r();
+const pick = (arr, r = rnd) => arr[Math.floor(r() * arr.length)];
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+const V3 = THREE.Vector3;
+
+/* =====================================================================
+   PALETTE  (32 fixed original colours; the post pass snaps every pixel)
+   ===================================================================== */
+const PAL_HEX = [
+  '#1a1423', '#2b2d4a', '#4a5578', '#8a90a6', '#c8ccd8', '#f6f2ea', '#a8d8f0', '#6fb3e0',
+  '#1f4f9a', '#2f6fc8', '#5a94e0', '#2f6a3a', '#4f9a44', '#8cc45a', '#4a3426', '#7a5236',
+  '#c49a6a', '#8e4a3a', '#f08a24', '#1e4430', '#c0213a', '#7a1428', '#f4d23c', '#b8962a',
+  '#6a3a9a', '#e0409a', '#8a2a6a', '#f0b890', '#a86a48', '#e8a070', '#0d1030', '#ffe8a0'];
+const P = {
+  ink: 0, navy: 1, slate: 2, grey: 3, lgrey: 4, white: 5, skyL: 6, sky: 7, blueD: 8, blue: 9, blueL: 10,
+  grassD: 11, grass: 12, grassL: 13, dirtD: 14, dirt: 15, tan: 16, brick: 17, orange: 18, grassN: 19,
+  crimson: 20, crimsonD: 21, yellow: 22, yellowD: 23, purple: 24, magenta: 25, magentaD: 26, skin: 27,
+  skinD: 28, dusk: 29, nightB: 30, warm: 31,
+};
+const C = k => new THREE.Color(PAL_HEX[P[k]]);
+const HEX = k => PAL_HEX[P[k]];
+
+/* =====================================================================
+   RENDER  (low-res target + depth outline + palette quantisation)
+   ===================================================================== */
+const canvas = document.getElementById('view');
+const stage = document.getElementById('stage');
+THREE.ColorManagement.enabled = false;
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+renderer.setPixelRatio(1);
+renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+renderer.shadowMap.enabled = CFG.shadows;
+renderer.shadowMap.type = THREE.BasicShadowMap;
+
+const scene = new THREE.Scene();
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 260);
+const CAM = { yaw: Math.PI / 4, yawTarget: Math.PI / 4, yawFrom: Math.PI / 4, tweenT: 1, zoom: 1, userZoom: 1, target: new V3(-2, 0, 0), baseW: 62, dist: 120, quadrant: 0 };
+
+let RT = null, RW = CFG.rtW, RH = 200;
+const postMat = new THREE.ShaderMaterial({
+  uniforms: {
+    tColor: { value: null }, tDepth: { value: null }, res: { value: new THREE.Vector2(1, 1) },
+    cNear: { value: 1 }, cFar: { value: 260 }, thr: { value: 1 },
+    pal: { value: PAL_HEX.map(h => new THREE.Color(h)) }, ink: { value: new THREE.Color(PAL_HEX[0]) },
+  },
+  vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }`,
+  fragmentShader: `
+    precision highp float;
+    varying vec2 vUv;
+    uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 res;
+    uniform float cNear; uniform float cFar; uniform float thr;
+    uniform vec3 pal[32]; uniform vec3 ink;
+    // orthographic depth buffer is linear in view z: linearise to metres
+    float lin(vec2 uv){ float d = texture2D(tDepth, uv).x; return cNear + d * (cFar - cNear); }
+    float bayer(vec2 p){ int x=int(mod(p.x,4.)); int y=int(mod(p.y,4.)); int i=x+y*4;
+      float m[16]; m[0]=0.;m[1]=8.;m[2]=2.;m[3]=10.;m[4]=12.;m[5]=4.;m[6]=14.;m[7]=6.;m[8]=3.;m[9]=11.;m[10]=1.;m[11]=9.;m[12]=15.;m[13]=7.;m[14]=13.;m[15]=5.;
+      float v=0.; for(int k=0;k<16;k++){ if(k==i) v=m[k]; } return v/16.-.47; }
+    void main(){
+      vec2 px = 1.0 / res;
+      float c = lin(vUv);
+      float d1 = c - lin(vUv + vec2(px.x, 0.));
+      float d2 = c - lin(vUv - vec2(px.x, 0.));
+      float d3 = c - lin(vUv + vec2(0., px.y));
+      float d4 = c - lin(vUv - vec2(0., px.y));
+      float edge = max(max(d1, d2), max(d3, d4));
+      vec3 col = texture2D(tColor, vUv).rgb;
+      col += bayer(gl_FragCoord.xy) * 0.016;
+      vec3 best = pal[0]; float bd = 1e9;
+      for (int i = 0; i < 32; i++) {
+        vec3 d = col - pal[i];
+        float dd = dot(d * d, vec3(2.0, 4.0, 3.0));
+        if (dd < bd) { bd = dd; best = pal[i]; }
+      }
+      if (edge > thr) best = ink;
+      gl_FragColor = vec4(best, 1.0);
+    }`,
+  depthTest: false, depthWrite: false,
+});
+const postScene = new THREE.Scene();
+const postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), postMat));
+
+function makeRT() {
+  if (RT) { RT.depthTexture.dispose(); RT.dispose(); }
+  const dt = new THREE.DepthTexture(RW, RH);
+  dt.type = THREE.UnsignedIntType;
+  RT = new THREE.WebGLRenderTarget(RW, RH, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: true, depthTexture: dt });
+  postMat.uniforms.tColor.value = RT.texture;
+  postMat.uniforms.tDepth.value = dt;
+  postMat.uniforms.res.value.set(RW, RH);
+}
+function resize() {
+  const w = stage.clientWidth || 640, h = stage.clientHeight || 400;
+  RW = CFG.rtW; RH = Math.max(120, Math.round(RW * h / w));
+  renderer.setSize(RW, RH, false);
+  makeRT();
+  updateCameraFrustum();
+}
+function updateCameraFrustum() {
+  const aspect = RW / RH;
+  const halfW = CAM.baseW / 2 / (CAM.zoom * CAM.userZoom);
+  const halfH = halfW / aspect;
+  camera.left = -halfW; camera.right = halfW; camera.top = halfH; camera.bottom = -halfH;
+  camera.updateProjectionMatrix();
+  // outline threshold scales with metres-per-pixel (ground depth slope ~ 1/tan(elev) per pixel)
+  const mpp = (2 * halfH) / RH;
+  postMat.uniforms.thr.value = mpp / Math.tan(CFG.elev) * 2.2 + 0.25;
+}
+function renderFrame() {
+  renderer.setRenderTarget(RT);
+  renderer.render(scene, camera);
+  renderer.setRenderTarget(null);
+  postMat.uniforms.cNear.value = camera.near; postMat.uniforms.cFar.value = camera.far;
+  renderer.render(postScene, postCam);
+}
+
+/* =====================================================================
+   WORLD  (floating island, school, fence, stands, props, lights)
+   ===================================================================== */
+const MATS = {};
+function mat(key, opts) {
+  const id = key + (opts ? JSON.stringify(opts) : '');
+  if (!MATS[id]) MATS[id] = new THREE.MeshLambertMaterial(Object.assign({ color: P[key] !== undefined ? PAL_HEX[P[key]] : key }, opts || {}));
+  return MATS[id];
+}
+const BOX = new THREE.BoxGeometry(1, 1, 1);
+function shade(m, cast = true) { m.castShadow = CFG.shadows && cast; m.receiveShadow = CFG.shadows; return m; }
+// box with its base at y
+function bx(w, h, d, color, x, y, z, parent = scene, cast = true) {
+  const m = new THREE.Mesh(BOX, typeof color === 'string' ? mat(color) : color);
+  m.scale.set(w, h, d); m.position.set(x, y + h / 2, z); parent.add(shade(m, cast)); return m;
+}
+function cyl(r, h, color, x, y, z, parent = scene, seg = 8) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, seg), mat(color));
+  m.position.set(x, y + h / 2, z); parent.add(shade(m)); return m;
+}
+const OBST = [];
+function block(x0, z0, x1, z1) { OBST.push([Math.min(x0, x1), Math.min(z0, z1), Math.max(x0, x1), Math.max(z0, z1)]); }
+function canvasTex(w, h, draw) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'); g.imageSmoothingEnabled = false; draw(g, w, h);
+  const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
+  t.colorSpace = THREE.NoColorSpace; return t;
+}
+
+// ---- pixel font (3x5) used by the sign, the scoreboard and the snack stand
+const FONT = {
+  '0': '111101101101111', '1': '010110010010111', '2': '111001111100111', '3': '111001111001111', '4': '101101111001001',
+  '5': '111100111001111', '6': '111100111101111', '7': '111001001001001', '8': '111101111101111', '9': '111101111001111',
+  'A': '010101111101101', 'B': '110101110101110', 'C': '011100100100011', 'D': '110101101101110', 'E': '111100110100111',
+  'F': '111100110100100', 'G': '011100101101011', 'H': '101101111101101', 'I': '111010010010111', 'J': '001001001101010',
+  'K': '101101110101101', 'L': '100100100100111', 'M': '101111111101101', 'N': '110101101101101', 'O': '010101101101010',
+  'P': '110101110100100', 'Q': '010101101110011', 'R': '110101110101101', 'S': '011100010001110', 'T': '111010010010010',
+  'U': '101101101101111', 'V': '101101101101010', 'W': '101101111111101', 'X': '101101010101101', 'Y': '101101010010010',
+  'Z': '111001010100111', ':': '000010000010000', '-': '000000111000000', '.': '000000000000010', ' ': '000000000000000',
+  'o': '000000111101111', "'": '010010000000000', '+': '000010111010000',
+};
+function pixText(g, str, x, y, color, s = 1) {
+  g.fillStyle = color;
+  for (const ch of str) {
+    const gl = FONT[ch] || FONT[ch.toUpperCase()] || FONT[' '];
+    for (let i = 0; i < 15; i++) if (gl[i] === '1') g.fillRect(x + (i % 3) * s, y + Math.floor(i / 3) * s, s, s);
+    x += 4 * s;
+  }
+}
+const textW = (str, s = 1) => str.length * 4 * s - s;
+// CJK text for signs: drawn with the system CJK font, then hard-thresholded so it stays pixel-crisp
+function cjkText(g, str, cx, y, px, color, weight = 700) {
+  const c = document.createElement('canvas'); c.width = Math.ceil(px * str.length * 1.2 + 8); c.height = Math.ceil(px * 1.4);
+  const t = c.getContext('2d');
+  t.font = `${weight} ${px}px "PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC","Noto Sans SC",sans-serif`;
+  t.textBaseline = 'top'; t.fillStyle = '#fff'; t.fillText(str, 2, 1);
+  const w = Math.min(c.width, Math.ceil(t.measureText(str).width) + 4), d = t.getImageData(0, 0, c.width, c.height).data;
+  g.fillStyle = color; const x0 = Math.round(cx - w / 2);
+  for (let j = 0; j < c.height; j++) for (let i = 0; i < w; i++) if (d[(j * c.width + i) * 4 + 3] > 110) g.fillRect(x0 + i, y + j, 1, 1);
+}
+
+// ---- lights
+const hemi = new THREE.HemisphereLight(0xffffff, 0x445533, 1.2); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffffff, 2); sun.position.set(30, 55, 22); scene.add(sun, sun.target);
+if (CFG.shadows) {
+  sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024);
+  const sc = sun.shadow.camera; sc.left = -48; sc.right = 48; sc.top = 40; sc.bottom = -40; sc.near = 5; sc.far = 160;
+  sun.shadow.bias = -0.0015; sun.shadow.normalBias = 0.08;
+}
+const flash = new THREE.PointLight(0xffffff, 0, 14, 0); scene.add(flash);
+
+// ---- island
+const ISL = CFG.island;
+function insideIsland(x, z, m = 0) { return Math.pow(Math.abs(x) / (ISL.a - m), ISL.n) + Math.pow(Math.abs(z) / (ISL.b - m), ISL.n) <= 1; }
+function islandEdge(t, s = 1) {
+  const c = Math.cos(t), si = Math.sin(t);
+  return [Math.sign(c) * Math.pow(Math.abs(c), 2 / ISL.n) * ISL.a * s, Math.sign(si) * Math.pow(Math.abs(si), 2 / ISL.n) * ISL.b * s];
+}
+{
+  const NS = 96, shape = new THREE.Shape();
+  for (let i = 0; i < NS; i++) { const [x, z] = islandEdge(i / NS * Math.PI * 2); i ? shape.lineTo(x, -z) : shape.moveTo(x, -z); }
+  const geo = new THREE.ShapeGeometry(shape, 1); geo.rotateX(-Math.PI / 2);
+  const pos = geo.attributes.position, uv = geo.attributes.uv;
+  for (let i = 0; i < pos.count; i++) uv.setXY(i, (pos.getX(i) + ISL.a) / (2 * ISL.a), (pos.getZ(i) + ISL.b) / (2 * ISL.b));
+  const r = mulberry(7);
+  const grassTex = canvasTex(120, 80, (g, w, h) => {
+    g.fillStyle = HEX('grass'); g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 260; i++) { g.fillStyle = r() < 0.55 ? HEX('grassD') : HEX('grassL'); const s = 1 + Math.floor(r() * 3); g.fillRect(Math.floor(r() * w), Math.floor(r() * h), s, 1 + Math.floor(r() * 2)); }
+  });
+  const top = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: grassTex })); top.receiveShadow = CFG.shadows; scene.add(top);
+
+  // tapered rocky underside, flat-shaded with per-face colours
+  const rings = [];
+  const K = 9, N = 64;
+  for (let k = 0; k <= K; k++) {
+    const ring = [];
+    let y, s;
+    if (k === 0) { y = 0; s = 1; } else if (k === 1) { y = -0.45; s = 1; } else if (k === 2) { y = -1.6; s = 0.985; }
+    else { const f = (k - 2) / (K - 2); y = -1.6 - f * 24; s = Math.pow(1 - f, 0.85) * 0.96; }
+    for (let i = 0; i < N; i++) {
+      const [x, z] = islandEdge(i / N * Math.PI * 2, s);
+      const j = k > 2 && k < K ? 1 + (r() - 0.5) * 0.16 : 1;
+      ring.push([x * j, y + (k > 2 && k < K ? (r() - 0.5) * 1.4 : 0), z * j]);
+    }
+    rings.push(ring);
+  }
+  const P3 = [], CL = [];
+  const faceCol = k => k === 0 ? C('grassD') : k === 1 ? C('dirt') : C(pick(k < 4 ? ['dirt', 'dirtD', 'dirt'] : ['dirtD', 'slate', 'navy', 'slate', 'grey'], r));
+  for (let k = 0; k < K; k++) for (let i = 0; i < N; i++) {
+    const a = rings[k][i], b = rings[k][(i + 1) % N], c = rings[k + 1][(i + 1) % N], d = rings[k + 1][i];
+    const col = faceCol(k);
+    for (const v of [a, d, b, b, d, c]) { P3.push(...v); CL.push(col.r, col.g, col.b); }
+  }
+  const ug = new THREE.BufferGeometry();
+  ug.setAttribute('position', new THREE.Float32BufferAttribute(P3, 3));
+  ug.setAttribute('color', new THREE.Float32BufferAttribute(CL, 3));
+  ug.computeVertexNormals();
+  scene.add(new THREE.Mesh(ug, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, side: THREE.DoubleSide })));
+}
+
+// ---- court plane (texture comes from SURFACES)
+const courtMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+{
+  const g = new THREE.PlaneGeometry(CFG.FX * 2, CFG.FZ * 2); g.rotateX(-Math.PI / 2);
+  const m = new THREE.Mesh(g, courtMat); m.position.y = 0.02; m.receiveShadow = CFG.shadows; scene.add(m);
+  bx(CFG.FX * 2 + 0.3, 0.06, CFG.FZ * 2 + 0.3, 'lgrey', 0, -0.05, 0, scene, false); // kerb
+}
+
+// ---- sides (for camera cut-away)
+const SIDES = { xm: { n: [-1, 0], objs: [] }, xp: { n: [1, 0], objs: [] }, zm: { n: [0, -1], objs: [] }, zp: { n: [0, 1], objs: [] } };
+
+// ---- school (north end, -x)
+const SX = -29;
+const school = new THREE.Group(); scene.add(school); SIDES.xm.objs.push(school);
+const windowMat = new THREE.MeshLambertMaterial({ color: HEX('navy'), emissive: 0x000000 });
+const lampMat = new THREE.MeshLambertMaterial({ color: HEX('lgrey'), emissive: 0x000000 });
+let scoreboardTex, clockHands = {}, flagGeo, flagBase;
+{
+  bx(6, 7, 27, 'brick', SX - 3, 0, 0, school);
+  bx(6.12, 0.7, 27.12, 'dirtD', SX - 3, 0, 0, school);
+  bx(6.12, 0.18, 27.12, 'lgrey', SX - 3, 3.55, 0, school);
+  bx(6.6, 0.4, 27.6, 'lgrey', SX - 3, 7, 0, school);
+  bx(6.2, 0.5, 27.2, 'slate', SX - 3, 7.3, 0, school);
+  bx(2.6, 1.8, 4, 'brick', SX - 4, 7.6, -9, school);
+  bx(0.8, 1.2, 0.8, 'grey', SX - 2, 7.8, 5, school);
+  block(SX - 6.4, -13.8, SX + 0.1, 13.8);
+  const wins = [[2.0, [-12.2, -10, -7.8, -5.6, -3.6, 3.6, 5.6, 7.8, 10, 12.2]], [5.0, [-12.6, -3.6, 3.6, 5.6, 10.6, 12.4]]];
+  for (const [y, zs] of wins) for (const z of zs) {
+    bx(0.12, 1.3, 1.4, windowMat, SX + 0.04, y - 0.65, z, school, false);
+    bx(0.2, 0.12, 1.6, 'lgrey', SX + 0.08, y - 0.78, z, school, false);
+  }
+  // porch + door the teams walk out of
+  bx(2.6, 0.3, 5.4, 'lgrey', SX + 1.3, 0, 0, school);
+  bx(0.7, 0.15, 3.2, 'lgrey', SX + 2.9, 0, 0, school);
+  for (const z of [-2.35, 2.35]) bx(0.26, 2.9, 0.26, 'white', SX + 2.35, 0.3, z, school);
+  bx(2.9, 0.25, 5.8, 'slate', SX + 1.35, 3.2, 0, school);
+  bx(0.14, 2.6, 2.2, 'white', SX + 0.03, 0.3, 0, school, false);
+  bx(0.16, 2.4, 1.9, 'crimsonD', SX + 0.06, 0.3, 0, school, false);
+  bx(0.2, 0.1, 0.1, 'yellow', SX + 0.16, 1.5, 0.6, school, false);
+  // sign
+  const signTex = canvasTex(96, 26, (g, w, h) => {
+    g.fillStyle = HEX('navy'); g.fillRect(0, 0, w, h); g.fillStyle = HEX('yellow'); g.fillRect(0, 0, w, 1); g.fillRect(0, h - 1, w, 1);
+    cjkText(g, '第12学校', w / 2, 1, 15, HEX('white'));
+    pixText(g, 'SCHOOL No. 12', Math.floor((w - textW('SCHOOL No. 12')) / 2), 19, HEX('skyL'));
+  });
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(6.2, 1.68), new THREE.MeshLambertMaterial({ map: signTex, emissive: 0x6a6a6a, emissiveMap: signTex }));
+  sign.rotation.y = Math.PI / 2; sign.position.set(SX + 0.09, 4.85, 0); school.add(sign);
+  // scoreboard 64x32
+  bx(0.3, 3.1, 5.6, 'ink', SX, 3.65, -8.5, school);
+  scoreboardTex = canvasTex(64, 32, () => {});
+  const sb = new THREE.Mesh(new THREE.PlaneGeometry(5.0, 2.5), new THREE.MeshBasicMaterial({ map: scoreboardTex }));
+  sb.rotation.y = Math.PI / 2; sb.position.set(SX + 0.32, 5.2, -8.5); school.add(sb);
+  // wall clock
+  const ck = new THREE.Group(); ck.position.set(SX + 0.08, 5.2, 8.2); school.add(ck);
+  const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.95, 0.1, 20), mat('ink')); rim.rotation.z = Math.PI / 2; ck.add(rim);
+  const face = new THREE.Mesh(new THREE.CylinderGeometry(0.82, 0.82, 0.12, 20), mat('white')); face.rotation.z = Math.PI / 2; face.position.x = 0.03; ck.add(face);
+  for (const [name, len, w] of [['h', 0.45, 0.09], ['m', 0.7, 0.06]]) {
+    const piv = new THREE.Group(); piv.position.x = 0.12; ck.add(piv);
+    const hand = new THREE.Mesh(BOX, mat('ink')); hand.scale.set(0.04, len, w); hand.position.y = len / 2 - 0.05; piv.add(hand);
+    clockHands[name] = piv;
+  }
+  // flag on a pole by the porch
+  cyl(0.09, 9, 'lgrey', -26.6, 0, 11.8);
+  block(-27, 11.4, -26.2, 12.2);
+  const flagTex = canvasTex(24, 15, (g, w, h) => {
+    g.fillStyle = HEX('navy'); g.fillRect(0, 0, w, h); g.fillStyle = HEX('yellow'); g.fillRect(0, 10, w, 2);
+    pixText(g, '12', 8, 3, HEX('white'));
+  });
+  flagGeo = new THREE.PlaneGeometry(2.4, 1.5, 12, 4); flagGeo.translate(1.2, 0, 0);
+  flagBase = flagGeo.attributes.position.array.slice();
+  const flag = new THREE.Mesh(flagGeo, new THREE.MeshLambertMaterial({ map: flagTex, side: THREE.DoubleSide }));
+  flag.position.set(-26.6, 8.1, 11.8); flag.rotation.y = -0.6; scene.add(shade(flag));
+  // forecourt plaza
+  bx(6.6, 0.03, 21, 'tan', -25.7, 0, 0, scene, false);
+}
+
+// ---- fence with gates
+{
+  const H = { xm: 4, xp: 4, zm: 3, zp: 3 };
+  const gaps = { xm: [[-9, -6.5], [6.5, 9]], zp: [[-16.5, -14], [14, 16.5]], xp: [], zm: [] };
+  const fenceMat = new THREE.MeshBasicMaterial({ color: HEX('lgrey'), transparent: true, opacity: 0.26, depthWrite: false, side: THREE.DoubleSide });
+  for (const side of Object.keys(SIDES)) {
+    const grp = new THREE.Group(); scene.add(grp); SIDES[side].objs.push(grp);
+    const alongX = side[0] === 'z';
+    const half = alongX ? CFG.FX : CFG.FZ;
+    const fixed = (side[1] === 'm' ? -1 : 1) * (alongX ? CFG.FZ : CFG.FX);
+    const h = H[side];
+    // segments between gaps
+    let segs = [[-half, half]];
+    for (const [g0, g1] of gaps[side]) segs = segs.flatMap(([a, b]) => (g1 <= a || g0 >= b) ? [[a, b]] : [[a, g0], [g1, b]].filter(s => s[1] - s[0] > 0.1));
+    const toW = (t, y = 0) => alongX ? [t, y, fixed] : [fixed, y, t];
+    for (const [a, b] of segs) {
+      const len = b - a, mid = (a + b) / 2;
+      const pg = new THREE.PlaneGeometry(len, h);
+      const pm = new THREE.Mesh(pg, fenceMat);
+      const [x, , z] = toW(mid); pm.position.set(x, h / 2, z); if (!alongX) pm.rotation.y = Math.PI / 2; grp.add(pm);
+      const [rx, , rz] = toW(mid);
+      bx(alongX ? len : 0.08, 0.08, alongX ? 0.08 : len, 'grey', rx, h - 0.08, rz, grp, false);
+      bx(alongX ? len : 0.06, 0.06, alongX ? 0.06 : len, 'grey', rx, 1.1, rz, grp, false);
+      const n = Math.max(1, Math.round(len / 2.5));
+      for (let i = 0; i <= n; i++) { const [px, , pz] = toW(a + len * i / n); bx(0.1, h, 0.1, 'grey', px, 0, pz, grp); }
+      if (alongX) block(a, fixed - 0.25, b, fixed + 0.25); else block(fixed - 0.25, a, fixed + 0.25, b);
+    }
+  }
+}
+
+// ---- goals (3 x 2 m, red/white striped posts, nets)
+const GOALS = [];
+{
+  const stripe = canvasTex(2, 8, (g) => { for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? HEX('white') : HEX('crimson'); g.fillRect(0, i, 2, 1); } });
+  stripe.wrapS = stripe.wrapT = THREE.RepeatWrapping;
+  const postMatV = new THREE.MeshLambertMaterial({ map: stripe });
+  const barTex = stripe.clone(); barTex.needsUpdate = true; barTex.repeat.set(1, 1.5);
+  const barMat = new THREE.MeshLambertMaterial({ map: barTex });
+  const netMat = new THREE.MeshBasicMaterial({ color: HEX('white'), transparent: true, opacity: 0.38, depthWrite: false, side: THREE.DoubleSide });
+  for (const s of [-1, 1]) {
+    const g = new THREE.Group(); g.position.set(s * 20, 0, 0); scene.add(g);
+    for (const z of [-1.5, 1.5]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.16, 2, 0.16), postMatV); p.position.set(s * 0.08, 1, z); g.add(shade(p)); }
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 3.16), barMat); bar.position.set(s * 0.08, 2, 0); g.add(shade(bar));
+    const net = new THREE.Group(); g.add(net);
+    const back = new THREE.Mesh(new THREE.PlaneGeometry(3, 1.2), netMat); back.rotation.y = Math.PI / 2; back.position.set(s * 1.0, 0.6, 0); net.add(back);
+    const topN = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 3), netMat); topN.rotation.x = -Math.PI / 2; topN.position.set(s * 0.5, 1.6, 0); topN.rotation.y = s * 0.0; net.add(topN);
+    const slope = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 3), netMat); slope.rotation.set(-Math.PI / 2, s * -0.6, 0); slope.position.set(s * 0.6, 1.5, 0); net.add(slope);
+    for (const z of [-1.5, 1.5]) { const sd = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 2), netMat); sd.position.set(s * 0.5, 1, z); net.add(sd); }
+    bx(0.06, 0.06, 3, 'lgrey', s * 1.0, 0, 0, g, false);
+    GOALS.push({ s, group: g, net, shake: 0 });
+    block(s * 19.9, -1.7, s * 21.2, 1.7);
+  }
+}
+
+// ---- stands (instanced spectators fill them later)
+const SEATS = [];
+function makeStand(side, cx, cz, rotY, len, rows) {
+  const g = new THREE.Group(); g.position.set(cx, 0, cz); g.rotation.y = rotY; scene.add(g); SIDES[side].objs.push(g);
+  for (let r = 0; r < rows; r++) {
+    bx(len, 0.45 * (r + 1), 0.85, r % 2 ? 'lgrey' : 'grey', 0, 0, -r * 0.85, g);
+  }
+  bx(len, 1.0, 0.08, 'grey', 0, 0.45 * rows, -(rows - 0.5) * 0.85, g, false);
+  g.updateMatrixWorld(true);
+  const r2 = mulberry(side.length * 31 + rows);
+  for (let r = 0; r < rows; r++) for (let x = -len / 2 + 0.45; x < len / 2 - 0.3; x += 0.62) {
+    if (r2() < 0.28) continue;
+    const p = new V3(x + (r2() - 0.5) * 0.12, 0.45 * (r + 1), -r * 0.85 - 0.12).applyMatrix4(g.matrixWorld);
+    SEATS.push({ p, side, rot: rotY });
+  }
+  // obstacle footprint
+  const corners = [[-len / 2, 0.5], [len / 2, 0.5], [-len / 2, -rows * 0.85 - 0.2], [len / 2, -rows * 0.85 - 0.2]].map(([x, z]) => new V3(x, 0, z).applyMatrix4(g.matrixWorld));
+  block(Math.min(...corners.map(c => c.x)), Math.min(...corners.map(c => c.z)), Math.max(...corners.map(c => c.x)), Math.max(...corners.map(c => c.z)));
+  return g;
+}
+makeStand('zm', 0, -15.0, 0, 26, 4);
+makeStand('zp', 0, 15.0, Math.PI, 24, 4);
+makeStand('xp', 24.9, 0, -Math.PI / 2, 16, 3);
+
+// ---- benches + timekeeper's table (bench side = +z touchline)
+const BENCH = { home: { x0: -10.5, x1: -5.5 }, away: { x0: 5.5, x1: 10.5 }, z: 11.75 };
+for (const b of [BENCH.home, BENCH.away]) {
+  const cx = (b.x0 + b.x1) / 2, len = b.x1 - b.x0 + 0.8;
+  bx(len, 0.42, 0.45, 'white', cx, 0, BENCH.z, scene);
+  bx(len, 0.55, 0.08, 'slate', cx, 0.42, BENCH.z + 0.26, scene);
+  for (const dx of [-len / 2 + 0.1, len / 2 - 0.1]) bx(0.08, 1.9, 0.9, 'slate', cx + dx, 0, BENCH.z, scene);
+  bx(len, 0.08, 1.0, 'slate', cx, 1.9, BENCH.z + 0.05, scene);
+  block(b.x0 - 0.5, BENCH.z - 0.3, b.x1 + 0.5, BENCH.z + 0.6);
+}
+bx(2.0, 0.08, 0.7, 'white', 0, 0.72, 11.6); for (const dx of [-0.9, 0.9]) bx(0.08, 0.72, 0.6, 'grey', dx, 0, 11.6);
+bx(0.5, 0.25, 0.3, 'ink', -0.5, 0.8, 11.6, scene, false);
+bx(0.45, 0.45, 0.45, 'slate', 0.3, 0, 12.1); bx(0.45, 0.45, 0.45, 'slate', -0.5, 0, 12.1);
+block(-1.1, 11.2, 1.1, 12.45);
+
+// ---- floodlight masts
+const FLOODS = [], MASTS = [];
+for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+  const x = sx * 23.6, z = sz * 13.9;
+  const pole = cyl(0.18, 13, 'grey', x, 0, z);
+  const head = bx(2.0, 1.1, 0.35, 'slate', x, 12.6, z);
+  head.lookAt(0, 0, 0); head.rotateX(0); 
+  const lamp = bx(1.8, 0.9, 0.06, lampMat, 0, 0, 0, scene, false); lamp.position.copy(head.position).lerp(new V3(0, 0, 0), 0.012); lamp.lookAt(0, 0, 0);
+  const sp = new THREE.SpotLight(0xfff0c8, 0, 0, 0.62, 0.65, 0);
+  sp.position.set(x, 13, z); sp.target.position.set(x * 0.3, 0, z * 0.2); scene.add(sp, sp.target);
+  FLOODS.push(sp); MASTS.push({ grp: [pole, head, lamp], x, z }); block(x - 0.4, z - 0.4, x + 0.4, z + 0.4);
+}
+
+// ---- props: playground, shed, bike rack, hoop, snack stand
+{
+  // playground (+x, -z)
+  const px = 31, pz = -20;
+  bx(7, 0.03, 6, 'tan', px, 0, pz, scene, false);
+  bx(1.2, 1.6, 1.2, 'yellow', px - 2, 0, pz - 1);
+  bx(1.3, 0.12, 1.3, 'crimson', px - 2, 1.6, pz - 1);
+  const slide = bx(0.8, 0.1, 3.0, 'orange', px - 2, 0.8, pz + 0.9); slide.rotation.x = 0.55;
+  for (const dx of [-2.2, 2.2]) for (const dz of [-0.6, 0.6]) { const leg = bx(0.1, 2.4, 0.1, 'purple', px + 1.5 + dx * 0.5, 0, pz - 1.2 + dz); leg.rotation.z = dx > 0 ? 0.15 : -0.15; }
+  bx(2.6, 0.1, 0.1, 'purple', px + 1.5, 2.35, pz - 1.2);
+  for (const dx of [-0.5, 0.5]) { bx(0.04, 1.6, 0.04, 'grey', px + 1.5 + dx, 0.75, pz - 1.2); bx(0.45, 0.06, 0.25, 'crimson', px + 1.5 + dx, 0.7, pz - 1.2); }
+  bx(2.6, 0.25, 2.6, 'dirt', px + 1.2, 0, pz + 1.6); bx(2.2, 0.27, 2.2, 'tan', px + 1.2, 0, pz + 1.6, scene, false);
+  block(px - 3, pz - 2, px + 3, pz + 3);
+  // shed (+x, +z)
+  const shx = 32, shz = 19.5;
+  bx(4, 2.4, 3, 'dusk', shx, 0, shz);
+  const roof = new THREE.Mesh(new THREE.CylinderGeometry(1.75, 1.75, 4.3, 3), mat('crimsonD')); roof.rotation.z = Math.PI / 2; roof.rotation.x = Math.PI / 2; roof.position.set(shx, 2.85, shz); roof.scale.set(1, 1, 0.55); scene.add(shade(roof));
+  bx(1, 1.9, 0.06, 'dirtD', shx - 0.6, 0, shz - 1.52, scene, false);
+  block(shx - 2.2, shz - 1.7, shx + 2.2, shz + 1.7);
+  // bike rack (-x, +z)
+  const bkx = -13, bkz = 21.5;
+  bx(6, 0.6, 0.08, 'grey', bkx, 0, bkz, scene, false);
+  const wheel = new THREE.TorusGeometry(0.32, 0.05, 4, 10);
+  ['orange', 'magenta', 'yellow', 'crimson', 'purple', 'blue'].forEach((c, i) => {
+    const x = bkx - 2.5 + i;
+    for (const dz of [-0.55, 0.55]) { const w = new THREE.Mesh(wheel, mat('ink')); w.position.set(x, 0.34, bkz + dz); w.rotation.y = Math.PI / 2; scene.add(shade(w)); }
+    const fr = bx(0.06, 0.08, 1.0, c, x, 0.55, bkz); fr.rotation.x = 0.1;
+    bx(0.06, 0.4, 0.06, c, x, 0.4, bkz - 0.35); bx(0.08, 0.06, 0.25, 'ink', x, 0.82, bkz - 0.35);
+    bx(0.5, 0.05, 0.05, 'ink', x, 0.95, bkz + 0.45);
+  });
+  block(bkx - 3.3, bkz - 0.9, bkx + 3.3, bkz + 0.9);
+  // basketball hoop on an asphalt pad (-x, -z)
+  const hx = -19, hz = -21.5;
+  bx(8, 0.03, 6.5, 'slate', hx, 0, hz, scene, false);
+  cyl(0.12, 3.3, 'grey', hx, 0, hz - 3.0);
+  bx(1.8, 1.05, 0.08, 'white', hx, 2.9, hz - 2.75);
+  bx(0.6, 0.45, 0.09, 'crimson', hx, 3.0, hz - 2.72, scene, false);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.03, 4, 12), mat('orange')); ring.rotation.x = Math.PI / 2; ring.position.set(hx, 3.05, hz - 2.4); scene.add(ring);
+  block(hx - 0.5, hz - 3.4, hx + 0.5, hz - 2.6);
+  // snack stand (-x, +z)
+  const ssx = -24.5, ssz = 18;
+  bx(3.2, 2.2, 2.0, 'white', ssx, 0, ssz);
+  bx(3.3, 0.12, 0.6, 'tan', ssx, 1.0, ssz - 1.25);
+  const awn = canvasTex(8, 2, (g) => { for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? HEX('white') : HEX('crimson'); g.fillRect(i, 0, 1, 2); } });
+  const aw = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 1.3), new THREE.MeshLambertMaterial({ map: awn, side: THREE.DoubleSide }));
+  aw.rotation.x = -Math.PI / 2 + 0.5; aw.position.set(ssx, 2.35, ssz - 1.4); scene.add(shade(aw));
+  const snTex = canvasTex(44, 11, (g, w, h) => { g.fillStyle = HEX('yellow'); g.fillRect(0, 0, w, h); cjkText(g, '小卖部', w / 2, 0, 10, HEX('ink')); });
+  const sn = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.6), new THREE.MeshLambertMaterial({ map: snTex })); sn.position.set(ssx, 2.55, ssz + 1.01); sn.rotation.y = 0; scene.add(sn);
+  const sn2 = sn.clone(); sn2.position.z = ssz - 1.01; sn2.rotation.y = Math.PI; scene.add(sn2);
+  block(ssx - 1.8, ssz - 1.2, ssx + 1.8, ssz + 1.2);
+}
+
+// ---- instanced trees
+const TREES = [];
+{
+  const r = mulberry(99);
+  let tries = 0;
+  while (TREES.length < 46 && tries++ < 3000) {
+    const t = r() * Math.PI * 2, rad = 0.72 + r() * 0.26;
+    const [x, z] = islandEdge(t, rad);
+    if (!insideIsland(x, z, 2.2)) continue;
+    if (Math.abs(x) < 27 && Math.abs(z) < 19.5) continue;
+    if (x < -24 && Math.abs(z) < 15.5) continue;
+    if (OBST.some(o => x > o[0] - 1.6 && x < o[2] + 1.6 && z > o[1] - 1.6 && z < o[3] + 1.6)) continue;
+    if (TREES.some(tr => Math.hypot(tr.x - x, tr.z - z) < 3.2)) continue;
+    TREES.push({ x, z, s: 0.8 + r() * 0.6, c: pick(['grass', 'grassD', 'grassL', 'grassD'], r) });
+  }
+  const trunk = new THREE.InstancedMesh(BOX, mat('dirtD'), TREES.length);
+  const canopyGeo = new THREE.IcosahedronGeometry(1.5, 0);
+  const canopy = new THREE.InstancedMesh(canopyGeo, new THREE.MeshLambertMaterial({ flatShading: true }), TREES.length);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+  TREES.forEach((tr, i) => {
+    m4.compose(new V3(tr.x, 0.9 * tr.s, tr.z), q, new V3(0.35 * tr.s, 1.8 * tr.s, 0.35 * tr.s)); trunk.setMatrixAt(i, m4);
+    q.setFromEuler(new THREE.Euler(0, r() * 3, 0));
+    m4.compose(new V3(tr.x, 2.6 * tr.s, tr.z), q, new V3(tr.s, tr.s * 1.15, tr.s)); canopy.setMatrixAt(i, m4);
+    canopy.setColorAt(i, C(tr.c)); q.identity();
+    block(tr.x - 0.5, tr.z - 0.5, tr.x + 0.5, tr.z + 0.5);
+  });
+  shade(trunk); shade(canopy); scene.add(trunk, canopy);
+}
+
+// ---- sky gradient + time of day
+const skyCanvas = document.createElement('canvas'); skyCanvas.width = 2; skyCanvas.height = 128;
+const skyTex = new THREE.CanvasTexture(skyCanvas); skyTex.colorSpace = THREE.NoColorSpace;
+scene.background = skyTex;
+const TOD = {
+  day: { sky: ['#5aa6dc', '#cfeaf6'], hs: 0xe4f0ff, hg: 0x6a7a4a, hi: 1.6, sc: 0xfff2dc, si: 2.5, sp: [30, 55, 22], flood: 0, win: false },
+  dusk: { sky: ['#2b2d4a', '#e8a070'], hs: 0xb4b4d8, hg: 0x4a4a5a, hi: 1.35, sc: 0xffb080, si: 1.3, sp: [-45, 14, 30], flood: 1.1, win: true },
+  night: { sky: ['#070a1c', '#2b2d4a'], hs: 0x7a88c8, hg: 0x283048, hi: 0.95, sc: 0xa0b0e8, si: 0.45, sp: [-20, 50, -30], flood: 1.6, win: true },
+};
+function applyTOD(k) {
+  const t = TOD[k]; STATE.tod = k;
+  const g = skyCanvas.getContext('2d'); const gr = g.createLinearGradient(0, 0, 0, 128);
+  gr.addColorStop(0, t.sky[0]); gr.addColorStop(1, t.sky[1]); g.fillStyle = gr; g.fillRect(0, 0, 2, 128);
+  skyTex.needsUpdate = true;
+  hemi.color.set(t.hs); hemi.groundColor.set(t.hg); hemi.intensity = t.hi;
+  sun.color.set(t.sc); sun.intensity = t.si; sun.position.set(...t.sp);
+  for (const f of FLOODS) f.intensity = t.flood;
+  lampMat.emissive.set(t.flood ? 0xfff0c0 : 0x000000);
+  windowMat.emissive.set(t.win ? 0xe8b850 : 0x000000);
+  windowMat.color.set(t.win ? HEX('warm') : HEX('navy'));
+  stage.style.background = t.sky[0];
+  CHAR_LIFT.value = k === 'day' ? 0.84 : k === 'dusk' ? 0.55 : 0.38;
+}
+
+// ---- cut-away: hide the fence side / stand nearest the camera
+function updateCutaway() {
+  const cx = Math.cos(CAM.yaw), cz = Math.sin(CAM.yaw);
+  for (const k in SIDES) {
+    const s = SIDES[k]; const near = s.n[0] * cx + s.n[1] * cz > 0.2;
+    s.near = near;
+    for (const o of s.objs) o.visible = !near;
+  }
+  for (const m of MASTS) { const near = (m.x * cx + m.z * cz) / Math.hypot(m.x, m.z) > 0.8; for (const o of m.grp) o.visible = !near; }
+  if (typeof onCutaway === 'function') onCutaway();
+}
+
+/* =====================================================================
+   SURFACES  (court texture + ball physics constants per surface)
+   ===================================================================== */
+// e: restitution, crr: rolling resistance coeff, mus: sliding friction coeff, skid: player skid factor
+const SURF = {
+  rubber:  { name: '橡胶',            base: 'blue',  run: 'blueD', e: 0.60, crr: 0.060, mus: 0.40, skid: 0.0, accel: 11 },
+  asphalt: { name: '沥青',            base: 'slate', run: 'navy',  e: 0.75, crr: 0.045, mus: 0.45, skid: 0.0, accel: 11 },
+  turf:    { name: '人造草',          base: 'grass', run: 'grassD',e: 0.15, crr: 0.130, mus: 0.55, skid: 0.0, accel: 10 },
+  parquet: { name: '木地板',          base: 'tan',   run: 'dirt',  e: 0.55, crr: 0.030, mus: 0.22, skid: 0.35, accel: 6 },
+};
+let surf = SURF.rubber;
+const COURT_PPM = 16;
+let courtTex = null;
+function drawCourt(key) {
+  const S = SURF[key], W = CFG.FX * 2 * COURT_PPM, H = CFG.FZ * 2 * COURT_PPM;
+  const r = mulberry(5);
+  const X = x => (x + CFG.FX) * COURT_PPM, Y = z => (z + CFG.FZ) * COURT_PPM;
+  const tex = canvasTex(W, H, (g) => {
+    g.fillStyle = HEX(S.run); g.fillRect(0, 0, W, H);
+    g.fillStyle = HEX(S.base); g.fillRect(X(-20), Y(-10), 40 * COURT_PPM, 20 * COURT_PPM);
+    // surface grain
+    if (key === 'asphalt') { for (let i = 0; i < 2600; i++) { g.fillStyle = r() < 0.5 ? HEX('grey') : HEX('navy'); g.fillRect(r() * W | 0, r() * H | 0, 1, 1); } }
+    if (key === 'turf') { for (let i = 0; i < 10; i++) { g.fillStyle = HEX(i % 2 ? 'grass' : 'grassL'); g.globalAlpha = 0.35; g.fillRect(X(-20 + i * 4), Y(-10), 4 * COURT_PPM, 20 * COURT_PPM); } g.globalAlpha = 1; }
+    if (key === 'parquet') {
+      for (let z = -CFG.FZ; z < CFG.FZ; z += 0.5) for (let x = -CFG.FX + ((z * 2) % 2 ? 0.9 : 0); x < CFG.FX; x += 1.8) {
+        g.fillStyle = HEX(pick(['tan', 'tan', 'dusk', 'skin'], r)); g.globalAlpha = 0.35; g.fillRect(X(x), Y(z), 1.8 * COURT_PPM - 1, 0.5 * COURT_PPM - 1);
+      }
+      g.globalAlpha = 1;
+    }
+    if (key === 'rubber') { for (let i = 0; i < 900; i++) { g.fillStyle = HEX('blueL'); g.globalAlpha = 0.4; g.fillRect(r() * W | 0, r() * H | 0, 1, 1); } g.globalAlpha = 1; }
+    // markings (white)
+    g.strokeStyle = HEX('white'); g.fillStyle = HEX('white'); g.lineWidth = 4;
+    const line = (x0, z0, x1, z1) => { g.beginPath(); g.moveTo(X(x0), Y(z0)); g.lineTo(X(x1), Y(z1)); g.stroke(); };
+    const arc = (x, z, rad, a0, a1) => { g.beginPath(); g.arc(X(x), Y(z), rad * COURT_PPM, a0, a1); g.stroke(); };
+    const dot = (x, z, rad = 0.16) => { g.beginPath(); g.arc(X(x), Y(z), rad * COURT_PPM, 0, Math.PI * 2); g.fill(); };
+    g.strokeRect(X(-20), Y(-10), 40 * COURT_PPM, 20 * COURT_PPM);
+    line(0, -10, 0, 10); arc(0, 0, 3, 0, Math.PI * 2); dot(0, 0);
+    for (const s of [-1, 1]) {
+      const gx = s * 20;
+      // 6 m penalty area: quarter circles from each post + 3 m straight line
+      if (s < 0) { arc(gx, 1.5, 6, 0, Math.PI / 2); arc(gx, -1.5, 6, -Math.PI / 2, 0); }
+      else { arc(gx, 1.5, 6, Math.PI / 2, Math.PI); arc(gx, -1.5, 6, Math.PI, Math.PI * 1.5); }
+      line(gx - s * 6, -1.5, gx - s * 6, 1.5);
+      dot(gx - s * 6, 0); dot(gx - s * 10, 0);                 // 6 m and 10 m penalty marks
+      line(gx - s * 10, -0.4, gx - s * 10, -0.4); dot(gx - s * 10, -5, 0.1); dot(gx - s * 10, 5, 0.1);
+      // corner arcs r 0.25 (drawn slightly larger to survive the low resolution)
+      for (const sz of [-1, 1]) arc(gx, sz * 10, 0.5, s < 0 ? (sz < 0 ? 0 : -Math.PI / 2) : (sz < 0 ? Math.PI / 2 : Math.PI), s < 0 ? (sz < 0 ? Math.PI / 2 : 0) : (sz < 0 ? Math.PI : Math.PI * 1.5));
+      // 5 m marks from the corner on the goal line
+      for (const sz of [-1, 1]) line(gx, sz * 5, gx + s * 0.4, sz * 5);
+    }
+    // substitution zones (bench side, +z): marks at 5 m and 10 m from halfway
+    g.lineWidth = 3;
+    for (const x of [-10, -5, 5, 10]) line(x, 9.6, x, 10.4);
+    // timekeeper zone hint
+    g.globalAlpha = 0.25; g.fillStyle = HEX('white'); g.fillRect(X(-1.2), Y(10.6), 2.4 * COURT_PPM, 1.4 * COURT_PPM); g.globalAlpha = 1;
+  });
+  tex.minFilter = THREE.LinearMipmapLinearFilter; tex.generateMipmaps = true; tex.anisotropy = 4;
+  return tex;
+}
+function applySurface(key) {
+  if (!SURF[key]) key = 'rubber';
+  STATE.surface = key; surf = SURF[key];
+  if (courtTex) courtTex.dispose();
+  courtTex = drawCourt(key); courtMat.map = courtTex; courtMat.needsUpdate = true;
+}
+
+/* =====================================================================
+   PHYSICS  (ball: quadratic drag, bounce, slide -> roll, solvers)
+   ===================================================================== */
+const G = 9.81, KD = 0.0145, R = CFG.R;
+const ball = { p: new V3(0, R, 0), v: new V3(), air: false, sliding: false, slideV0: 0, owner: null, hands: false, lastTouch: null, spinQ: new THREE.Quaternion() };
+let onBallBounce = null;
+function stepBall(dt) {
+  if (ball.owner) return;
+  const v = ball.v, p = ball.p;
+  if (ball.air || p.y > R + 0.003 || v.y > 0.01) {
+    ball.air = true;
+    const sp = v.length();
+    v.y -= G * dt;
+    v.multiplyScalar(Math.max(0, 1 - KD * sp * dt));          // quadratic drag: a = -k|v|v
+    p.addScaledVector(v, dt);
+    if (p.y <= R) {
+      p.y = R;
+      if (v.y < 0) {
+        const vin = -v.y, vy = vin * surf.e;                   // restitution of the surface
+        const keep = 1 - (1 - surf.e) * 0.25;                  // a little horizontal loss per bounce
+        v.x *= keep; v.z *= keep;
+        if (vy < 0.7) { v.y = 0; ball.air = false; ball.sliding = true; ball.slideV0 = Math.hypot(v.x, v.z); }
+        else v.y = vy;
+        if (onBallBounce && vin > 2) onBallBounce(vin);
+      }
+    }
+  } else {
+    v.y = 0; p.y = R;
+    const h = Math.hypot(v.x, v.z);
+    if (h > 1e-4) {
+      let dec;
+      if (ball.sliding) { dec = surf.mus * G; if (h <= ball.slideV0 * 5 / 7) ball.sliding = false; }   // slide -> roll at 5/7 v0
+      else dec = surf.crr * G;                                                                       // rolling resistance
+      dec += KD * h * h;
+      const nh = Math.max(0, h - dec * dt);
+      v.x *= nh / h; v.z *= nh / h;
+      p.x += v.x * dt; p.z += v.z * dt;
+    } else { v.x = v.z = 0; }
+  }
+  // net + fence containment
+  if (Math.abs(p.x) > 20 && Math.abs(p.z) < 1.5 && p.y < 2) {
+    if (Math.abs(p.x) > 20.85) { p.x = Math.sign(p.x) * 20.85; v.x *= -0.12; v.z *= 0.5; v.y *= 0.4; }
+  }
+  if (Math.abs(p.x) > CFG.FX - 0.2) { p.x = Math.sign(p.x) * (CFG.FX - 0.2); v.x *= -0.3; }
+  if (Math.abs(p.z) > CFG.FZ - 0.2) { p.z = Math.sign(p.z) * (CFG.FZ - 0.2); v.z *= -0.3; }
+}
+// Ground pass: analytic initial speed so the ball covers d metres and arrives at va.
+// Each phase obeys dv/dt = -(a + k v^2)  =>  s = ln((a + k v1^2)/(a + k v2^2)) / 2k.
+// Phase 1 slides (a_s = mu_s g) until v = 5/7 v0, phase 2 rolls (a_r = crr g).
+function groundPassSpeed(d, va) {
+  const as = surf.mus * G, ar = surf.crr * G, k = KD, c = 25 / 49;
+  const E = Math.exp(2 * k * d);
+  // case A: ball still sliding on arrival
+  const uA = (E * (as + k * va * va) - as) / k;
+  if (va * va >= c * uA) return Math.sqrt(uA);
+  // case B: (as + k u)(ar + k c u) = E (ar + k va^2)(as + k c u)  -> quadratic in u = v0^2
+  const Er = E * (ar + k * va * va);
+  const qa = k * k * c, qb = k * ar + k * c * as - Er * k * c, qc = as * ar - Er * as;
+  const u = (-qb + Math.sqrt(Math.max(0, qb * qb - 4 * qa * qc))) / (2 * qa);
+  return Math.min(24, Math.sqrt(Math.max(u, va * va)));
+}
+// Lob / chip / shot: analytic no-drag launch for flight time T, refined by shooting against the drag model.
+function simFlight(v0, T) {
+  const v = v0.clone(), p = new V3(), n = Math.max(4, Math.ceil(T / 0.01)), dt = T / n;
+  for (let i = 0; i < n; i++) { const sp = v.length(); v.y -= G * dt; v.multiplyScalar(1 - KD * sp * dt); p.addScaledVector(v, dt); }
+  return p;
+}
+function lobVelocity(from, to, T) {
+  const d = new V3().subVectors(to, from);
+  const v = new V3(d.x / T, (d.y + 0.5 * G * T * T) / T, d.z / T);
+  for (let it = 0; it < 4; it++) { const p = simFlight(v, T); v.x += (d.x - p.x) / T; v.y += (d.y - p.y) / T; v.z += (d.z - p.z) / T; }
+  return v;
+}
+function predictBall(t) {
+  if (ball.owner) return [ball.p.x, ball.p.z];
+  const h = Math.hypot(ball.v.x, ball.v.z);
+  if (h < 0.05) return [ball.p.x, ball.p.z];
+  const a = (ball.air ? 0.4 : surf.crr * G) + KD * h * h * 0.5;
+  const tStop = h / a, tt = Math.min(t, tStop);
+  const s = h * tt - 0.5 * a * tt * tt;
+  return [ball.p.x + ball.v.x / h * s, ball.p.z + ball.v.z / h * s];
+}
+
+/* =====================================================================
+   NAV  (A* on a 0.5 m grid over the island)
+   ===================================================================== */
+const NAV = { cs: 0.5, x0: -ISL.a, z0: -ISL.b, nx: 0, nz: 0, free: null };
+function buildNav() {
+  const cs = NAV.cs;
+  NAV.nx = Math.ceil(2 * ISL.a / cs); NAV.nz = Math.ceil(2 * ISL.b / cs);
+  const N = NAV.nx * NAV.nz;
+  NAV.free = new Uint8Array(N); NAV.g = new Float32Array(N); NAV.came = new Int32Array(N); NAV.seen = new Uint32Array(N); NAV.shut = new Uint32Array(N); NAV.run = 0;
+  for (let j = 0; j < NAV.nz; j++) for (let i = 0; i < NAV.nx; i++) {
+    const x = NAV.x0 + (i + 0.5) * cs, z = NAV.z0 + (j + 0.5) * cs;
+    let ok = insideIsland(x, z, 1.2);
+    if (ok) for (const o of OBST) if (x > o[0] - 0.3 && x < o[2] + 0.3 && z > o[1] - 0.3 && z < o[3] + 0.3) { ok = false; break; }
+    NAV.free[j * NAV.nx + i] = ok ? 1 : 0;
+  }
+}
+const cellOf = (x, z) => clamp(Math.floor((z - NAV.z0) / NAV.cs), 0, NAV.nz - 1) * NAV.nx + clamp(Math.floor((x - NAV.x0) / NAV.cs), 0, NAV.nx - 1);
+const cellXZ = c => ({ x: NAV.x0 + (c % NAV.nx + 0.5) * NAV.cs, z: NAV.z0 + (Math.floor(c / NAV.nx) + 0.5) * NAV.cs });
+function nearestFree(c) {
+  if (NAV.free[c]) return c;
+  const ci = c % NAV.nx, cj = Math.floor(c / NAV.nx);
+  for (let r = 1; r < 14; r++) for (let dj = -r; dj <= r; dj++) for (let di = -r; di <= r; di++) {
+    if (Math.max(Math.abs(di), Math.abs(dj)) !== r) continue;
+    const i = ci + di, j = cj + dj; if (i < 0 || j < 0 || i >= NAV.nx || j >= NAV.nz) continue;
+    if (NAV.free[j * NAV.nx + i]) return j * NAV.nx + i;
+  }
+  return -1;
+}
+function losFree(a, b) {
+  const d = Math.hypot(b.x - a.x, b.z - a.z), n = Math.ceil(d / 0.25);
+  for (let k = 1; k < n; k++) { const t = k / n; if (!NAV.free[cellOf(a.x + (b.x - a.x) * t, a.z + (b.z - a.z) * t)]) return false; }
+  return true;
+}
+function findPath(ax, az, bx_, bz) {
+  const s = nearestFree(cellOf(ax, az)), g = nearestFree(cellOf(bx_, bz));
+  if (s < 0 || g < 0) return [{ x: bx_, z: bz }];
+  const { nx, free, g: gs, came, seen, shut } = NAV;
+  const run = ++NAV.run;
+  const gi = g % nx, gj = Math.floor(g / nx);
+  const H = c => { const dx = Math.abs(c % nx - gi), dz = Math.abs(Math.floor(c / nx) - gj); return (dx + dz) + (1.4142 - 2) * Math.min(dx, dz); };
+  const heap = [], hf = [];
+  const push = (c, f) => { heap.push(c); hf.push(f); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (hf[p] <= hf[i]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; [hf[p], hf[i]] = [hf[i], hf[p]]; i = p; } };
+  const pop = () => { const top = heap[0]; const lc = heap.pop(), lf = hf.pop(); if (heap.length) { heap[0] = lc; hf[0] = lf; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < heap.length && hf[l] < hf[m]) m = l; if (r < heap.length && hf[r] < hf[m]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; [hf[m], hf[i]] = [hf[i], hf[m]]; i = m; } } return top; };
+  seen[s] = run; gs[s] = 0; came[s] = -1; push(s, H(s));
+  let found = false, iter = 0;
+  while (heap.length && iter++ < 40000) {
+    const c = pop();
+    if (shut[c] === run) continue; shut[c] = run;
+    if (c === g) { found = true; break; }
+    const ci = c % nx, cj = Math.floor(c / nx);
+    for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+      if (!di && !dj) continue;
+      const i = ci + di, j = cj + dj; if (i < 0 || j < 0 || i >= nx || j >= NAV.nz) continue;
+      const n = j * nx + i; if (!free[n] || shut[n] === run) continue;
+      if (di && dj && (!free[cj * nx + i] || !free[j * nx + ci])) continue;   // no corner cutting
+      const ng = gs[c] + (di && dj ? 1.4142 : 1);
+      if (seen[n] !== run || ng < gs[n]) { seen[n] = run; gs[n] = ng; came[n] = c; push(n, ng + H(n)); }
+    }
+  }
+  if (!found) return [{ x: bx_, z: bz }];
+  const cells = []; for (let c = g; c !== -1; c = came[c]) cells.push(cellXZ(c));
+  cells.reverse(); cells[0] = { x: ax, z: az };
+  const end = free[cellOf(bx_, bz)] ? { x: bx_, z: bz } : cells[cells.length - 1];
+  cells[cells.length - 1] = end;
+  // string pulling
+  const out = []; let anchor = cells[0];
+  for (let i = 2; i < cells.length; i++) if (!losFree(anchor, cells[i])) { anchor = cells[i - 1]; out.push(anchor); }
+  out.push(end);
+  return out;
+}
+
+/* =====================================================================
+   AGENTS  (instanced box characters, steering, generator coroutines, crowd)
+   ===================================================================== */
+const MAXC = 40;
+// ---- skeleton: [parent bone, pivot in parent space]. Model faces +z, feet at y 0, ~1.55 m tall at scale 1.
+const B_ROOT = 0, B_HIPS = 1, B_CHEST = 2, B_HEAD = 3, B_UAL = 4, B_UAR = 5, B_FAL = 6, B_FAR = 7, B_THL = 8, B_THR = 9, B_SHL = 10, B_SHR = 11;
+const BONES = [
+  [-1, [0, 0, 0]], [0, [0, 0.72, 0]], [1, [0, 0.06, 0]], [2, [0, 0.49, 0]],
+  [2, [-0.235, 0.42, 0]], [2, [0.235, 0.42, 0]], [4, [0, -0.235, 0]], [5, [0, -0.235, 0]],
+  [1, [-0.09, 0, 0]], [1, [0.09, 0, 0]], [8, [0, -0.36, 0]], [9, [0, -0.36, 0]],
+];
+// ---- body parts (one shared box geometry): [bone, offset, size, colour slot, optional part key, in crowd model]
+const PARTS = [
+  [B_THL, [0, -0.08, 0], [0.15, 0.17, 0.17], 'shorts', null, 1], [B_THR, [0, -0.08, 0], [0.15, 0.17, 0.17], 'shorts', null, 1],
+  [B_THL, [0, -0.26, 0], [0.115, 0.2, 0.125], 'leg', null, 1], [B_THR, [0, -0.26, 0], [0.115, 0.2, 0.125], 'leg', null, 1],
+  [B_SHL, [0, -0.15, 0], [0.12, 0.26, 0.13], 'sock', null, 1], [B_SHR, [0, -0.15, 0], [0.12, 0.26, 0.13], 'sock', null, 1],
+  [B_SHL, [0, -0.32, 0.035], [0.13, 0.08, 0.22], 'boot', null, 1], [B_SHR, [0, -0.32, 0.035], [0.13, 0.08, 0.22], 'boot', null, 1],
+  [B_HIPS, [0, 0.04, 0], [0.34, 0.16, 0.21], 'shorts', null, 1],
+  [B_CHEST, [0, 0.22, 0], [0.36, 0.44, 0.22], 'shirt', null, 1],
+  [B_CHEST, [0, 0.425, 0], [0.372, 0.035, 0.232], 'trim', null, 0],
+  [B_CHEST, [0, 0.475, 0], [0.1, 0.06, 0.1], 'skin', null, 0],
+  [B_HEAD, [0, 0.15, 0], [0.24, 0.25, 0.23], 'skin', null, 1],
+  [B_HEAD, [0, 0.285, -0.005], [0.26, 0.07, 0.25], 'hair', 'crown', 1],
+  [B_HEAD, [0, 0.19, -0.1], [0.26, 0.17, 0.06], 'hair', 'back', 1],
+  [B_HEAD, [0, 0.1, -0.11], [0.27, 0.32, 0.07], 'hair', 'long', 1],
+  [B_HEAD, [0, 0.15, -0.17], [0.09, 0.2, 0.08], 'hair', 'pony', 1],
+  [B_HEAD, [0, 0.33, 0.01], [0.13, 0.06, 0.15], 'hair', 'tuft', 0],
+  [B_HEAD, [0, 0.27, 0.105], [0.25, 0.06, 0.05], 'hair', 'fringe', 1],
+  [B_HEAD, [-0.055, 0.15, 0.117], [0.04, 0.04, 0.01], 'ink', 'eyes', 0], [B_HEAD, [0.055, 0.15, 0.117], [0.04, 0.04, 0.01], 'ink', 'eyes', 0],
+  [B_UAL, [0, -0.065, 0], [0.115, 0.15, 0.125], 'sleeve', null, 1], [B_UAR, [0, -0.065, 0], [0.115, 0.15, 0.125], 'sleeve', null, 1],
+  [B_UAL, [0, -0.175, 0], [0.09, 0.12, 0.095], 'arm', null, 1], [B_UAR, [0, -0.175, 0], [0.09, 0.12, 0.095], 'arm', null, 1],
+  [B_FAL, [0, -0.1, 0], [0.085, 0.2, 0.09], 'fore', null, 1], [B_FAR, [0, -0.1, 0], [0.085, 0.2, 0.09], 'fore', null, 1],
+  [B_FAL, [0, -0.235, 0.005], [0.1, 0.08, 0.105], 'hand', null, 1], [B_FAR, [0, -0.235, 0.005], [0.1, 0.08, 0.105], 'hand', null, 1],
+  [B_UAL, [0, -0.11, 0], [0.128, 0.045, 0.138], 'band', 'capt', 0],
+  [B_CHEST, [0, 0.25, 0], [0.385, 0.33, 0.24], 'vest', 'vest', 0],
+  [B_CHEST, [0, 0.12, -0.122], [0.3, 0.05, 0.01], 'vestb', 'vest', 0],
+  [B_CHEST, [0, 0.14, 0.118], [0.3, 0.5, 0.02], 'apron', 'apron', 0],
+  [B_HEAD, [0, 0.31, 0], [0.27, 0.08, 0.265], 'cap', 'cap', 1], [B_HEAD, [0, 0.28, 0.17], [0.23, 0.03, 0.13], 'cap', 'cap', 1],
+  [B_HEAD, [0, 0.14, 0.2], [0.21, 0.14, 0.13], 'cam', 'camera', 0], [B_HEAD, [0, 0.13, 0.3], [0.09, 0.09, 0.09], 'lens', 'camera', 0],
+  [B_HEAD, [0.06, 0.25, 0.2], [0.08, 0.06, 0.07], 'flashc', 'camera', 0],
+];
+const NP = PARTS.length;
+const CROWD_PARTS = PARTS.map((p, i) => p[5] ? i : -1).filter(i => i >= 0), NPC = CROWD_PARTS.length;
+const PART_LOCAL = PARTS.map(p => new THREE.Matrix4().compose(new V3(...p[1]), new THREE.Quaternion(), new V3(...p[2])));
+const HAIRSTYLES = { short: ['crown', 'back', 'fringe'], buzz: ['crown'], spiky: ['crown', 'back', 'tuft'], long: ['crown', 'long', 'fringe'], pony: ['crown', 'back', 'pony', 'fringe'], bald: ['back'] };
+// characters keep their lighting inside [floor, 1.12] x albedo so kit colours survive the palette snap:
+// shaded sides don't sink to brown and sunlit tops don't jump to the next brighter swatch (floor scales with time of day)
+const CHAR_LIFT = { value: 0.84 };
+const CLAMP_LIGHT = 'outgoingLight = clamp(outgoingLight, diffuseColor.rgb * uLift, diffuseColor.rgb * 1.12);\n#include <opaque_fragment>';
+function liftMat(m, key) {
+  m.onBeforeCompile = sh => {
+    sh.uniforms.uLift = CHAR_LIFT;
+    sh.fragmentShader = 'uniform float uLift;\n' + sh.fragmentShader.replace('#include <opaque_fragment>', CLAMP_LIGHT);
+  };
+  m.customProgramCacheKey = () => key; return m;
+}
+const charMat = liftMat(new THREE.MeshLambertMaterial({ color: 0xffffff }), 'charLift');
+const charMesh = new THREE.InstancedMesh(BOX, charMat, MAXC * NP);
+charMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); charMesh.frustumCulled = false;
+for (let i = 0; i < MAXC * NP; i++) { charMesh.setColorAt(i, new THREE.Color(1, 1, 1)); charMesh.setMatrixAt(i, new THREE.Matrix4().makeScale(0, 0, 0)); }
+shade(charMesh); scene.add(charMesh);
+// back numbers: a plane per player whose uv picks a cell from a 10x10 atlas of 00-99 (8x6 px cells)
+const numTex = canvasTex(80, 60, (g) => {
+  g.fillStyle = '#000'; g.fillRect(0, 0, 80, 60);
+  for (let n = 0; n < 100; n++) { const s = String(n), w = textW(s); pixText(g, s, (n % 10) * 8 + Math.floor((8 - w) / 2), Math.floor(n / 10) * 6 + 1, '#fff'); }
+});
+const numMat = new THREE.MeshLambertMaterial({ map: numTex });
+numMat.onBeforeCompile = sh => {
+  sh.uniforms.uLift = CHAR_LIFT;
+  sh.vertexShader = 'attribute float aNum; attribute vec3 aNumCol; varying vec3 vNumCol;\n' + sh.vertexShader.replace('#include <uv_vertex>', '#include <uv_vertex>\n vMapUv = vec2((mod(aNum, 10.) + uv.x) / 10., (9. - floor(aNum / 10.) + uv.y) / 10.); vNumCol = aNumCol;');
+  sh.fragmentShader = 'uniform float uLift; varying vec3 vNumCol;\n' + sh.fragmentShader
+    .replace('#include <map_fragment>', '')
+    .replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb = mix(diffuseColor.rgb, vNumCol, step(0.5, texture2D(map, vMapUv).r));')
+    .replace('#include <opaque_fragment>', CLAMP_LIGHT);
+};
+numMat.customProgramCacheKey = () => 'numPlate';
+const numGeo = new THREE.PlaneGeometry(1, 1); numGeo.rotateY(Math.PI);
+numGeo.setAttribute('aNum', new THREE.InstancedBufferAttribute(new Float32Array(MAXC), 1));
+numGeo.setAttribute('aNumCol', new THREE.InstancedBufferAttribute(new Float32Array(MAXC * 3), 3));
+const numMesh = new THREE.InstancedMesh(numGeo, numMat, MAXC);
+numMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); numMesh.frustumCulled = false;
+for (let i = 0; i < MAXC; i++) { numMesh.setColorAt(i, new THREE.Color(1, 1, 1)); numMesh.setMatrixAt(i, new THREE.Matrix4().makeScale(0, 0, 0)); }
+scene.add(numMesh);
+const NUM_LOCAL = new THREE.Matrix4().compose(new V3(0, 0.25, -0.114), new THREE.Quaternion(), new V3(0.25, 0.19, 1));
+
+const CHARS = [];
+const DEF_COLS = { shirt: 'white', shorts: 'navy', sock: 'white', skin: 'skin', hair: 'dirtD', boot: 'ink', band: 'yellow', vest: 'yellow', vestb: 'white', apron: 'white', cap: 'navy', cam: 'ink', lens: 'grey', flashc: 'white', ink: 'ink' };
+function makeChar(o) {
+  const c = Object.assign({
+    id: CHARS.length, pos: new V3(), vel: new V3(), heading: 0, face: null, scale: 1, bw: 1, bh: 1, headK: 1, visible: true, anim: 'idle', at: 0, phase: rnd() * 6, ph0: rnd() * 20,
+    co: null, brain: null, steered: false, onCourt: false, cool: 0, kind: 'npc', skid: 0, hair: 'short', opts: [], num: 0,
+    colors: { shirt: 'white', shorts: 'navy', sock: 'white', skin: 'skin', hair: 'dirtD' },
+  }, o);
+  CHARS.push(c); setCharColors(c); return c;
+}
+// resolve every colour slot: sleeves/trim default to the shirt, bare limbs default to skin
+function resolveCols(cc) {
+  const r = Object.assign({}, DEF_COLS, cc);
+  r.sleeve = cc.sleeve || r.shirt; r.trim = cc.trim || r.sleeve;
+  r.leg = cc.leg || r.skin; r.arm = cc.arm || r.skin; r.fore = cc.fore || r.arm; r.hand = cc.hand || r.skin;
+  return r;
+}
+function partMask(hair, opts) {
+  const on = new Set([...(HAIRSTYLES[hair] || HAIRSTYLES.short), 'eyes', ...opts]);
+  return PARTS.map(p => !p[4] || on.has(p[4]));
+}
+const _col = new THREE.Color();
+function setCharColors(c) {
+  const r = resolveCols(c.colors); c.mask = partMask(c.hair, c.opts);
+  for (let pi = 0; pi < NP; pi++) charMesh.setColorAt(c.id * NP + pi, _col.set(PAL_HEX[P[r[PARTS[pi][3]]]]));
+  charMesh.instanceColor.needsUpdate = true;
+  numMesh.setColorAt(c.id, _col.set(PAL_HEX[P[r.shirt]])); numMesh.instanceColor.needsUpdate = true;
+  const nc = C(c.colors.numc || 'white'), a = numGeo.attributes;
+  a.aNum.array[c.id] = c.num || 0; a.aNumCol.array.set([nc.r, nc.g, nc.b], c.id * 3); a.aNum.needsUpdate = a.aNumCol.needsUpdate = true;
+}
+function setAnim(c, a) { if (c.anim !== a) { c.anim = a; c.at = 0; } }
+
+// --- steering
+function steer(c, tx, tz, speed, dt, stopR = 0.15) {
+  const dx = tx - c.pos.x, dz = tz - c.pos.z, d = Math.hypot(dx, dz);
+  let vx = 0, vz = 0;
+  if (d > stopR) { const s = Math.min(speed, d * 2.2); vx = dx / d * s; vz = dz / d * s; }
+  const acc = (c.onCourt ? surf.accel : 10) * dt;
+  let ax = vx - c.vel.x, az = vz - c.vel.z; const al = Math.hypot(ax, az);
+  c.skid = c.onCourt && surf.skid > 0 && al > acc * 1.5 ? surf.skid : c.skid * 0.9;
+  if (al > acc) { ax *= acc / al; az *= acc / al; }
+  c.vel.x += ax; c.vel.z += az; c.steered = true;
+  return d;
+}
+function integrate(c, dt) {
+  if (!c.steered) steer(c, c.pos.x, c.pos.z, 0, dt);
+  c.pos.x += c.vel.x * dt; c.pos.z += c.vel.z * dt;
+  const sp = Math.hypot(c.vel.x, c.vel.z);
+  c.phase += dt * (3 + sp * 2.2) / Math.sqrt(c.scale); c.at += dt;
+  let want = c.heading;
+  if (sp > 0.35 && c.anim !== 'shake') want = Math.atan2(c.vel.x, c.vel.z);
+  else if (c.face !== null && c.face !== undefined) want = c.face;
+  let dh = ((want - c.heading + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+  c.heading += clamp(dh, -9 * dt, 9 * dt);
+}
+const angTo = (c, x, z) => Math.atan2(x - c.pos.x, z - c.pos.z);
+
+// --- coroutines: generator functions ticked once per sim step (global DT)
+let DT = CFG.FIXED;
+function* wait(s) { let t = 0; while (t < s) { t += DT; yield; } }
+function* waitUntil(fn, timeout = 30) { let t = 0; while (!fn() && t < timeout) { t += DT; yield; } }
+function* goDirect(c, x, z, speed = 1.6, stopR = 0.15) {
+  let t = 0;
+  while (steer(c, x, z, speed, DT, stopR * 0.5) > stopR && t < 40) { t += DT; yield; }
+  if (t >= 40) c.pos.set(x, 0, z);
+}
+function* walkTo(c, x, z, speed = 1.6) {
+  const path = findPath(c.pos.x, c.pos.z, x, z);
+  for (let i = 0; i < path.length; i++) {
+    const last = i === path.length - 1;
+    yield* goDirect(c, path[i].x, path[i].z, speed, last ? 0.15 : 0.45);
+  }
+}
+function runCo(c) { if (c.co) { const r = c.co.next(); if (r.done) c.co = null; } }
+
+// --- pose: per-bone euler [x, y, z] (order ZXY) + root bob / lean / roll
+const _b = new THREE.Matrix4(), _m = new THREE.Matrix4(), _t = new THREE.Matrix4(), _r = new THREE.Matrix4();
+const _q = new THREE.Quaternion(), _e = new THREE.Euler(), _e2 = new THREE.Euler(), _p = new V3(), _s = new V3();
+const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
+const PR = BONES.map(() => [0, 0, 0]);
+const PO = { y: 0, lean: 0, tilt: 0 };
+const BM = BONES.map(() => new THREE.Matrix4());
+function resetPose() { for (const r of PR) r[0] = r[1] = r[2] = 0; PO.y = 0; PO.lean = 0; PO.tilt = 0; }
+const setB = (b, x, y, z) => { PR[b][0] = x; PR[b][1] = y; PR[b][2] = z; };
+function poseSit(it) {
+  PO.y = -0.3; PO.lean = 0.06;
+  setB(B_THL, -1.45, 0, -0.06); setB(B_THR, -1.45, 0, 0.06); setB(B_SHL, 1.4, 0, 0); setB(B_SHR, 1.4, 0, 0);
+  setB(B_UAL, -0.5, 0, -0.06); setB(B_UAR, -0.5, 0, 0.06); setB(B_FAL, -0.75, 0, 0); setB(B_FAR, -0.75, 0, 0);
+  PR[B_CHEST][2] = Math.sin(it * 0.8) * 0.04;
+}
+function poseArmsUp(t, ph) {
+  setB(B_UAL, -0.2, 0, -2.55 - Math.sin(t * 9 + ph) * 0.25); setB(B_UAR, -0.2, 0, 2.55 + Math.sin(t * 9 + ph + 1) * 0.25);
+  PR[B_FAL][0] = PR[B_FAR][0] = -0.35;
+}
+function poseClap(t, ph) {
+  const o = Math.sin(t * 15 + ph) * 0.18;
+  setB(B_UAL, -1.0, 0, 0.42 + o); setB(B_UAR, -1.0, 0, -0.42 - o); PR[B_FAL][0] = PR[B_FAR][0] = -1.0;
+}
+function poseHandsHead() { setB(B_UAL, -0.3, 0, -2.35); setB(B_UAR, -0.3, 0, 2.35); PR[B_FAL][0] = PR[B_FAR][0] = -2.0; PR[B_HEAD][0] = -0.15; }
+function computePose(c) {
+  resetPose();
+  const sp = Math.hypot(c.vel.x, c.vel.z), at = c.at, it = MATCH.t + c.ph0;
+  // idle base: relaxed arms, breathing, weight shift, glances
+  setB(B_UAL, Math.sin(it * 1.1) * 0.04, 0, -0.1 - Math.sin(it * 1.7) * 0.025); setB(B_UAR, -Math.sin(it * 1.1) * 0.04, 0, 0.1 + Math.sin(it * 1.7) * 0.025);
+  PR[B_FAL][0] = PR[B_FAR][0] = -0.2;
+  PO.tilt = Math.sin(it * 0.6) * 0.025; PR[B_CHEST][2] = -PO.tilt * 0.8;
+  PR[B_HEAD][1] = Math.sin(it * 0.37) * Math.sin(it * 0.23) * 0.5;
+  setB(B_THL, 0, 0, -0.03); setB(B_THR, 0, 0, 0.03);
+  let legs = true, arms = true;
+  switch (c.anim) {
+    case 'sit': poseSit(it); legs = arms = false; break;
+    case 'celebrate': { poseArmsUp(it, c.ph0); arms = false; if (sp < 0.5) { const j = Math.abs(Math.sin(at * 6.5 + c.ph0)); PO.y = j * 0.24; PR[B_SHL][0] = PR[B_SHR][0] = (1 - j) * 0.5; PR[B_THL][0] = PR[B_THR][0] = -(1 - j) * 0.25; legs = false; } break; }
+    case 'slide': PO.y = -0.36; PO.lean = -0.32; setB(B_THL, 0.05, 0, -0.12); setB(B_THR, 0.05, 0, 0.12); setB(B_SHL, 1.6, 0, 0); setB(B_SHR, 1.6, 0, 0);
+      setB(B_UAL, -0.4, 0, -2.2); setB(B_UAR, -0.4, 0, 2.2); PR[B_FAL][0] = PR[B_FAR][0] = -0.3; PR[B_HEAD][0] = -0.35; PR[B_HEAD][1] = 0; legs = arms = false; break;
+    case 'wave': setB(B_UAR, -0.15, 0, 2.55 + Math.sin(at * 9) * 0.4); PR[B_FAR][0] = -0.45; break;
+    case 'stretch': setB(B_UAL, 0, 0, -2.9); setB(B_UAR, 0, 0, 2.9); PR[B_CHEST][2] = Math.sin(at * 2.2) * 0.3; arms = false;
+      if (sp < 0.5) { PO.y = -0.07; setB(B_THL, -0.6, 0, -0.1); setB(B_SHL, 0.75, 0, 0); setB(B_THR, 0.35, 0, 0.08); setB(B_SHR, 0.1, 0, 0); legs = false; } break;
+    case 'clap': poseClap(at, 0); arms = false; break;
+    case 'kick': if (at < 0.55) {
+      const st = at < 0.11 ? at / 0.11 : 1, back = at < 0.11 ? 0 : (at - 0.11) / 0.44;
+      PR[B_THR][0] = at < 0.11 ? lerp(0.6, -1.35, st) : lerp(-1.35, -0.1, back); PR[B_SHR][0] = at < 0.11 ? lerp(1.4, 0.05, st) : lerp(0.05, 0.3, back);
+      setB(B_THL, -0.2, 0, -0.08); PR[B_SHL][0] = 0.4; PO.y = -0.05; PO.lean = -0.14;
+      setB(B_UAL, 0.3, 0, -1.1); setB(B_UAR, 0.45, 0, 0.7); PR[B_CHEST][1] = -0.3 * (1 - back);
+      legs = arms = false;
+    } break;
+    case 'throw': { const k = clamp(at / 0.3, 0, 1); setB(B_UAL, lerp(-3.4, -1.3, k), 0, -0.25); setB(B_UAR, lerp(-3.4, -1.3, k), 0, 0.25); PR[B_FAL][0] = PR[B_FAR][0] = lerp(-0.9, -0.1, k);
+      PO.lean = lerp(-0.25, 0.25, k); setB(B_THL, -0.45, 0, 0); PR[B_SHL][0] = 0.3; PR[B_THR][0] = 0.3; arms = false; if (sp < 0.5) legs = false; break; }
+    case 'hold': setB(B_UAL, -0.95, 0, 0.3); setB(B_UAR, -0.95, 0, -0.3); PR[B_FAL][0] = PR[B_FAR][0] = -1.05; arms = false; break;
+    case 'dive': { const s = c.diveSide || 1, k = clamp(at / 0.35, 0, 1);
+      PO.tilt = s * 1.4 * k; PO.y = 0.14 + Math.sin(Math.min(1, at / 0.6) * Math.PI) * 0.35;
+      setB(B_UAL, -0.2, 0, -2.95); setB(B_UAR, -0.2, 0, 2.95); PR[B_FAL][0] = PR[B_FAR][0] = -0.1;
+      setB(B_THL, -0.15, 0, -0.18); setB(B_THR, 0.1, 0, 0.18); PR[B_SHL][0] = 0.25; PR[B_SHR][0] = 0.45; legs = arms = false; break; }
+    case 'gkready': setB(B_UAL, -0.55, 0, -0.55); setB(B_UAR, -0.55, 0, 0.55); PR[B_FAL][0] = PR[B_FAR][0] = -0.6; arms = false;
+      if (sp < 0.6) { PO.y = -0.1; PO.lean = 0.22; setB(B_THL, -0.6, 0, -0.18); setB(B_THR, -0.6, 0, 0.18); PR[B_SHL][0] = PR[B_SHR][0] = 1.0; PR[B_HEAD][0] = -0.3; legs = false; } break;
+    case 'crouch': PO.y = -0.13; PO.lean = 0.4; setB(B_THL, -0.65, 0, -0.12); setB(B_THR, -0.65, 0, 0.12); PR[B_SHL][0] = PR[B_SHR][0] = 1.15;
+      setB(B_UAL, -0.75, 0, -0.1); setB(B_UAR, -0.75, 0, 0.1); PR[B_FAL][0] = PR[B_FAR][0] = -0.15; PR[B_HEAD][0] = -0.35; if (sp < 0.5) legs = false; arms = false; break;
+    case 'shake': setB(B_UAR, -1.05 + Math.sin(at * 13) * 0.12, 0, -0.12); PR[B_FAR][0] = -0.3; break;
+    case 'photo': setB(B_UAL, -1.25, 0, 0.35); setB(B_UAR, -1.25, 0, -0.35); PR[B_FAL][0] = PR[B_FAR][0] = -1.55; PR[B_HEAD][0] = 0; PR[B_HEAD][1] = 0; arms = false;
+      if (sp < 0.5) { PO.y = -0.36; setB(B_THL, -1.5, 0, -0.1); PR[B_SHL][0] = 1.5; setB(B_THR, 0, 0, 0.1); PR[B_SHR][0] = 1.57; legs = false; } break;
+    case 'serve': setB(B_UAR, -0.9, 0, -0.25 + Math.sin(at * 3) * 0.35); PR[B_FAR][0] = -0.9; setB(B_UAL, -0.6, 0, 0.1); PR[B_FAL][0] = -0.8; arms = false; break;
+  }
+  if (sp > 0.25 && legs) {
+    const k = clamp((sp - 0.4) / 4.6, 0, 1), A = 0.32 + k * 0.62, s = Math.sin(c.phase), co = Math.cos(c.phase);
+    PR[B_THL][0] = -s * A; PR[B_THR][0] = s * A;
+    PR[B_SHL][0] = 0.08 + Math.max(0, co) * (0.35 + k * 1.35); PR[B_SHR][0] = 0.08 + Math.max(0, -co) * (0.35 + k * 1.35);
+    if (arms) { setB(B_UAL, s * A * 0.85, 0, -0.12); setB(B_UAR, -s * A * 0.85, 0, 0.12); PR[B_FAL][0] = PR[B_FAR][0] = -(0.25 + k * 1.15); }
+    PR[B_CHEST][1] = s * 0.1 * (0.4 + k);
+    PO.y += Math.abs(co) * (0.015 + k * 0.05); PO.lean += 0.03 + k * 0.17; PO.tilt *= 0.3;
+  }
+  if (c.skid > 0.05) PO.tilt += Math.sin(c.phase * 0.5) * 0.25 * c.skid;
+}
+// crowd pose: seated, glancing at the ball; clap / wave / hands-on-head / stand-and-jump with per-seat phase
+function crowdPose(s, t, happy, ooh) {
+  resetPose(); poseSit(t + s.ph);
+  const p = s.seat.p;
+  let rel = Math.atan2(ball.p.x - p.x, ball.p.z - p.z) - s.seat.rot; rel = ((rel + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+  PR[B_HEAD][1] = clamp(rel, -0.9, 0.9) * 0.8; PR[B_CHEST][1] = clamp(rel, -0.9, 0.9) * 0.2;
+  if (happy) {
+    if (s.react === 0) { const j = Math.abs(Math.sin(t * 7.5 + s.ph)); PO.y = 0.42 + j * 0.2; setB(B_THL, 0, 0, -0.05); setB(B_THR, 0, 0, 0.05); PR[B_SHL][0] = PR[B_SHR][0] = (1 - j) * 0.4; poseArmsUp(t, s.ph); }
+    else if (s.react === 1) poseArmsUp(t, s.ph);
+    else poseClap(t * 1.4, s.ph);
+    PR[B_HEAD][1] *= 0.3;
+  } else if (ooh) { poseHandsHead(); PO.y = s.react === 0 ? 0.2 : -0.3; if (s.react === 0) { setB(B_THL, -0.7, 0, -0.06); setB(B_THR, -0.7, 0, 0.06); PR[B_SHL][0] = PR[B_SHR][0] = 0.7; } }
+  else {
+    const amb = Math.sin(t * 0.31 + s.ph * 3.1);
+    if (s.clapper && amb > 0.72) poseClap(t, s.ph);
+    else if (s.waver && amb < -0.88) { setB(B_UAR, -0.2, 0, 2.5 + Math.sin(t * 8 + s.ph) * 0.4); PR[B_FAR][0] = -0.4; }
+  }
+}
+function evalRig(px, py, pz, heading, sc, bw, bh, headK) {
+  _e.set(PO.lean, heading, PO.tilt, 'YXZ'); _q.setFromEuler(_e);
+  BM[0].compose(_p.set(px, py + PO.y * sc * bh, pz), _q, _s.set(sc * bw, sc * bh, sc * bw));
+  for (let b = 1; b < BONES.length; b++) {
+    const pv = BONES[b][1], r = PR[b];
+    _e2.set(r[0], r[1], r[2], 'ZXY'); _q.setFromEuler(_e2);
+    const k = b === B_HEAD ? headK / bw : 1;
+    _r.compose(_p.set(pv[0], pv[1], pv[2]), _q, _s.set(k, b === B_HEAD ? headK / bh : 1, k));
+    BM[b].multiplyMatrices(BM[BONES[b][0]], _r);
+  }
+}
+const _fl = new V3();
+function updateCharMeshes() {
+  for (const c of CHARS) {
+    const base = c.id * NP;
+    if (!c.visible) { for (let pi = 0; pi < NP; pi++) charMesh.setMatrixAt(base + pi, ZERO); numMesh.setMatrixAt(c.id, ZERO); continue; }
+    computePose(c);
+    evalRig(c.pos.x, c.pos.y, c.pos.z, c.heading, c.scale, c.bw, c.bh, c.headK);
+    for (let pi = 0; pi < NP; pi++) {
+      if (!c.mask[pi]) { charMesh.setMatrixAt(base + pi, ZERO); continue; }
+      _m.multiplyMatrices(BM[PARTS[pi][0]], PART_LOCAL[pi]); charMesh.setMatrixAt(base + pi, _m);
+    }
+    if (c.num) { _m.multiplyMatrices(BM[B_CHEST], NUM_LOCAL); numMesh.setMatrixAt(c.id, _m); } else numMesh.setMatrixAt(c.id, ZERO);
+    if (c.kind === 'photo') { c.flashPos = (c.flashPos || new V3()).set(0.06, 0.25, 0.26).applyMatrix4(BM[B_HEAD]); }
+  }
+  charMesh.instanceMatrix.needsUpdate = true; numMesh.instanceMatrix.needsUpdate = true;
+}
+
+// --- ball mesh + blob shadow + pass marker
+const ballMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(0.2, 1), new THREE.MeshLambertMaterial({ color: HEX('white'), flatShading: true }));
+ballMesh.castShadow = CFG.shadows; scene.add(ballMesh);
+const ballPatch = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.12), mat('crimson')); ballPatch.position.set(0, 0.16, 0); ballMesh.add(ballPatch);
+const blob = new THREE.Mesh(new THREE.CircleGeometry(0.24, 10), new THREE.MeshBasicMaterial({ color: HEX('ink'), transparent: true, opacity: 0.5, depthWrite: false }));
+blob.rotation.x = -Math.PI / 2; scene.add(blob);
+const marker = new THREE.Group(); scene.add(marker); marker.visible = false;
+{
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.45, 0.75, 12), new THREE.MeshBasicMaterial({ color: HEX('yellow'), side: THREE.DoubleSide }));
+  ring.rotation.x = -Math.PI / 2; ring.position.y = 0.05; marker.add(ring);
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.7, 4), new THREE.MeshBasicMaterial({ color: HEX('yellow') }));
+  cone.rotation.x = Math.PI; cone.position.y = 1.6; marker.add(cone); marker.userData.cone = cone;
+}
+
+// --- crowd: instanced kids and parents in the stands (same rig, reduced part set, seated)
+const SPECT = [];
+const crowdMesh = new THREE.InstancedMesh(BOX, charMat, Math.max(1, SEATS.length * NPC));
+crowdMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); crowdMesh.frustumCulled = false; scene.add(crowdMesh);
+{
+  const r = mulberry(4242);
+  const clothes = ['crimson', 'yellow', 'purple', 'magenta', 'orange', 'white', 'navy', 'slate', 'dusk', 'blueL', 'grassL', 'tan', 'skyL', 'grassD'];
+  const pants = ['navy', 'slate', 'ink', 'blueD', 'tan', 'grey'];
+  SEATS.forEach((s, i) => {
+    const kid = r() < 0.55;
+    const hair = kid ? pick(['short', 'short', 'spiky', 'pony', 'long', 'buzz'], r) : pick(['short', 'short', 'long', 'buzz', 'bald', 'pony'], r);
+    const opts = !kid && r() < 0.18 ? ['cap'] : kid && r() < 0.08 ? ['cap'] : [];
+    const sp = {
+      seat: s, kid, ph: r() * 6, support: r() < 0.5 ? 0 : 1, react: Math.floor(r() * 3), clapper: r() < 0.45, waver: r() < 0.3,
+      scale: kid ? 0.66 + r() * 0.12 : 1.0 + r() * 0.1, bw: kid ? 0.95 + r() * 0.1 : 0.92 + r() * 0.2, bh: 0.96 + r() * 0.08, headK: kid ? 1.16 : 1,
+      cols: { shirt: pick(clothes, r), shorts: pick(pants, r), skin: pick(['skin', 'skin', 'skinD', 'dusk'], r), hair: hair === 'bald' || (!kid && r() < 0.12) ? 'grey' : pick(['ink', 'ink', 'dirtD', 'dirt', 'yellowD'], r), boot: pick(['ink', 'white', 'dirtD', 'crimson'], r), cap: pick(['navy', 'crimson', 'white', 'grassD'], r) },
+      hair, opts,
+    };
+    sp.cols.leg = kid && r() < 0.5 ? sp.cols.skin : sp.cols.shorts; sp.cols.sock = sp.cols.leg === sp.cols.skin ? 'white' : sp.cols.shorts;
+    sp.cols.arm = r() < 0.5 ? sp.cols.skin : sp.cols.shirt;
+    sp.mask = partMask(hair, opts);
+    SPECT.push(sp);
+  });
+}
+function colorCrowd(homeClub, awayClub) {
+  const r = mulberry(77);
+  SPECT.forEach((s, i) => {
+    const cc = Object.assign({}, s.cols);
+    if (r() < 0.45) { const club = s.support === 0 ? homeClub : awayClub; cc.shirt = club.shirt; cc.sleeve = r() < 0.5 ? club.sleeve : club.shirt; if (cc.arm !== cc.skin) cc.arm = cc.sleeve; }
+    const rc = resolveCols(cc);
+    CROWD_PARTS.forEach((pi, k) => crowdMesh.setColorAt(i * NPC + k, _col.set(PAL_HEX[P[rc[PARTS[pi][3]]]])));
+  });
+  if (crowdMesh.instanceColor) crowdMesh.instanceColor.needsUpdate = true;
+}
+function updateSpectators(t) {
+  const cheer = MATCH.cheer && t < MATCH.cheer.until ? MATCH.cheer : null;
+  const ooh = MATCH.ooh && t < MATCH.ooh;
+  SPECT.forEach((s, i) => {
+    const base = i * NPC;
+    if (SIDES[s.seat.side].near) { for (let k = 0; k < NPC; k++) crowdMesh.setMatrixAt(base + k, ZERO); return; }
+    const happy = cheer && (cheer.side === -1 || cheer.side === s.support);
+    crowdPose(s, t, happy, ooh);
+    const p = s.seat.p;
+    evalRig(p.x, p.y - 0.42 * s.scale * s.bh, p.z, s.seat.rot, s.scale, s.bw, s.bh, s.headK);
+    for (let k = 0; k < NPC; k++) {
+      const pi = CROWD_PARTS[k];
+      if (!s.mask[pi]) { crowdMesh.setMatrixAt(base + k, ZERO); continue; }
+      _m.multiplyMatrices(BM[PARTS[pi][0]], PART_LOCAL[pi]); crowdMesh.setMatrixAt(base + k, _m);
+    }
+  });
+  crowdMesh.instanceMatrix.needsUpdate = true;
+}
+
+/* =====================================================================
+   MATCH  (clubs, rosters, rules, director coroutine, play AI)
+   ===================================================================== */
+const CLUBS = [
+  { id: 'SHT', name: '河畔水獭队', short: '水獭', shirt: 'orange', sleeve: 'ink', trim: 'white', shorts: 'ink', sock: 'orange', numc: 'ink',
+    roster: [['王思远', 1], ['李明', 4], ['陈子轩', 7], ['赵雨桐', 11], ['刘浩然', 9], ['孙嘉怡', 12], ['周博文', 5], ['吴欣然', 8], ['郑一鸣', 10]] },
+  { id: 'HXG', name: '山岗彗星队', short: '彗星', shirt: 'crimson', sleeve: 'white', trim: 'white', shorts: 'white', sock: 'crimson', numc: 'white',
+    roster: [['张晨阳', 1], ['林小雨', 3], ['黄俊杰', 7], ['何佳琪', 11], ['马天宇', 10], ['罗诗涵', 13], ['高宇航', 6], ['谢婉清', 9], ['梁志强', 14]] },
+  { id: 'HLI', name: '枫林狐狸队', short: '狐狸', shirt: 'yellow', sleeve: 'purple', trim: 'purple', shorts: 'purple', sock: 'yellow', numc: 'purple',
+    roster: [['许安然', 1], ['韩子墨', 2], ['冯晓东', 8], ['曹雪儿', 6], ['邓凯文', 10], ['彭乐乐', 12], ['曾梓涵', 4], ['萧一帆', 7], ['田甜', 11]] },
+  { id: 'MTY', name: '北门猫头鹰队', short: '猫头鹰', shirt: 'white', sleeve: 'magenta', trim: 'magenta', shorts: 'magenta', sock: 'magenta', numc: 'magenta',
+    roster: [['杜若曦', 1], ['蒋文涛', 5], ['沈星辰', 7], ['唐可欣', 11], ['钟浩宇', 9], ['程悦', 12], ['苏明哲', 3], ['叶子琪', 8], ['白小川', 10]] },
+];
+const ROLES = ['GK', 'DEF', 'WL', 'WR', 'PIV', 'GK2', 'SUB', 'SUB', 'SUB'];
+const FORM = { DEF: [-11, 0], WL: [-5, -6], WR: [-5, 6], PIV: [2.5, 0] };
+const HAIR = ['ink', 'ink', 'dirtD', 'ink', 'dirt', 'dirtD', 'yellowD'];
+const MATCH = { t: 0, clock: 0, half: 1, state: 'boot', phase: 'dead', home: null, away: null, co: null, pending: null, nudge: null,
+  events: [], shot: null, pass: null, possTeam: null, cheer: null, ooh: 0, rate: 5, goals: 0, shots: 0, saves: 0, fouls: 0, subs: 0, flashT: 0 };
+const PLAYERS = [], STAFF = {};
+const other = T => T === MATCH.home ? MATCH.away : MATCH.home;
+const onCourt = T => T.players.filter(p => p.onCourt);
+const ownGoalX = T => -20 * T.dir;
+const gkOf = T => onCourt(T).find(p => p.role === 'GK');
+const nm = p => `${p.team.club.short} ${p.num}号 ${p.name}`;
+const clampCourt = (x, z, m = 0.3) => [clamp(x, -20 + m, 20 - m), clamp(z, -10 + m, 10 - m)];
+const scoreLine = () => `${MATCH.home.club.short} ${MATCH.home.score}–${MATCH.away.score} ${MATCH.away.club.short}`;
+function inArea(T, x, z) { const gx = ownGoalX(T); if (Math.sign(x) !== Math.sign(gx)) return false; const dx = Math.abs(gx - x), dz = Math.max(0, Math.abs(z) - 1.5); return Math.hypot(dx, dz) < 6.05; }
+function ballPlace(x, z) { ball.p.set(x, R, z); ball.v.set(0, 0, 0); ball.air = false; ball.sliding = false; ball.owner = null; ball.hands = false; }
+function nearestOutfield(T, spot, excl) {
+  let best = null, bd = 1e9;
+  for (const p of onCourt(T)) { if (p.role === 'GK' || p === excl || p.co) continue; const d = Math.hypot(p.pos.x - spot[0], p.pos.z - spot[1]); if (d < bd) { bd = d; best = p; } }
+  return best || onCourt(T).find(p => p !== excl);
+}
+function nearestOpp(p) {
+  let best = null, bd = 1e9;
+  for (const o of onCourt(other(p.team))) { const d = Math.hypot(o.pos.x - p.pos.x, o.pos.z - p.pos.z); if (d < bd) { bd = d; best = o; } }
+  return best ? { c: best, d: bd } : null;
+}
+
+function initChars() {
+  for (let i = 0; i < 18; i++) PLAYERS.push(makeChar({ kind: 'player', visible: false }));
+  // officials: sky-blue shirts with black sleeves/trim (no club, GK or surface uses that combination)
+  STAFF.ref = makeChar({ kind: 'ref', scale: 1.1, bw: 1.04, visible: false, hair: 'buzz', colors: { shirt: 'skyL', sleeve: 'ink', trim: 'ink', shorts: 'ink', sock: 'ink', boot: 'ink', skin: 'skinD', hair: 'ink' } });
+  STAFF.time = makeChar({ kind: 'official', scale: 1.1, bw: 1.12, visible: false, hair: 'bald', colors: { shirt: 'skyL', sleeve: 'ink', trim: 'ink', arm: 'ink', shorts: 'slate', leg: 'slate', sock: 'slate', boot: 'ink', skin: 'skin', hair: 'grey' } });
+  STAFF.coachH = makeChar({ kind: 'coach', scale: 1.12, bw: 1.1, visible: false, hair: 'short' });
+  STAFF.coachA = makeChar({ kind: 'coach', scale: 1.1, bw: 0.96, visible: false, hair: 'pony' });
+  STAFF.kid1 = makeChar({ kind: 'ballkid', scale: 0.74, headK: 1.15, hair: 'spiky', opts: ['vest'], colors: { shirt: 'navy', shorts: 'navy', sock: 'white', boot: 'white', vest: 'orange', vestb: 'white', skin: 'skin', hair: 'dirt' } });
+  STAFF.kid2 = makeChar({ kind: 'ballkid', scale: 0.72, headK: 1.15, hair: 'pony', opts: ['vest'], colors: { shirt: 'navy', shorts: 'navy', sock: 'white', boot: 'white', vest: 'orange', vestb: 'white', skin: 'skinD', hair: 'ink' } });
+  STAFF.photo = makeChar({ kind: 'photo', scale: 1.1, hair: 'short', opts: ['camera'], colors: { shirt: 'purple', sleeve: 'purple', arm: 'purple', shorts: 'tan', leg: 'tan', sock: 'tan', boot: 'dirtD', skin: 'skin', hair: 'yellowD' } });
+  STAFF.guard = makeChar({ kind: 'guard', scale: 1.14, bw: 1.15, hair: 'buzz', opts: ['cap', 'vest'], colors: { shirt: 'navy', arm: 'navy', shorts: 'navy', leg: 'navy', sock: 'navy', boot: 'ink', vest: 'yellow', vestb: 'lgrey', cap: 'navy', skin: 'skinD', hair: 'ink' } });
+  STAFF.snack = makeChar({ kind: 'parent', scale: 1.08, hair: 'long', colors: { shirt: 'blueL', sleeve: 'white', shorts: 'slate', leg: 'slate', sock: 'slate', boot: 'white', skin: 'skin', hair: 'dirtD' } });
+  STAFF.snackKid = makeChar({ kind: 'kid', scale: 0.7, headK: 1.16, hair: 'short', colors: { shirt: 'magenta', shorts: 'navy', sock: 'white', boot: 'crimson', skin: 'skinD', hair: 'ink' } });
+  STAFF.vendor = makeChar({ kind: 'vendor', scale: 1.08, bw: 1.18, hair: 'short', opts: ['apron', 'cap'], colors: { shirt: 'crimson', sleeve: 'crimson', shorts: 'navy', leg: 'navy', sock: 'navy', apron: 'white', cap: 'white', skin: 'skin', hair: 'ink' } });
+  // ball kids sit in the far fence corners, photographer by the goal line, guard on patrol
+  STAFF.kid1.pos.set(21.2, 0, -11.6); STAFF.kid2.pos.set(-21.2, 0, -11.6);
+  for (const k of [STAFF.kid1, STAFF.kid2]) k.brain = c => { c.face = angTo(c, ball.p.x, ball.p.z); setAnim(c, c.waveUntil > MATCH.t ? 'wave' : Math.sin(MATCH.t * 0.21 + c.id) > -0.2 ? 'crouch' : 'idle'); };
+  STAFF.photo.pos.set(21.2, 0, -5);
+  STAFF.photo.brain = (c, dt) => {
+    const end = MATCH.possTeam ? 20 * MATCH.possTeam.dir : (ball.p.x >= 0 ? 20 : -20);
+    const s = Math.sign(end) || 1;
+    const d = steer(c, s * 21.2, -5.2, 3, dt);
+    c.face = angTo(c, ball.p.x, ball.p.z); setAnim(c, d < 0.3 ? 'photo' : 'idle');
+  };
+  STAFF.guard.pos.set(-24, 0, -16);
+  STAFF.guard.co = (function* () {
+    const loop = [[-24, -16], [-6, -20.5], [14, -21], [27.5, -13], [28.5, 7], [22, 19], [0, 20.2], [-19, 21.5], [-24.5, 14.5]];
+    for (let i = 0; ; i = (i + 1) % loop.length) { yield* walkTo(STAFF.guard, loop[i][0], loop[i][1], 1.2); STAFF.guard.face = angTo(STAFF.guard, 0, 0); yield* wait(rr(2, 5)); }
+  })();
+  STAFF.snack.pos.set(-24.9, 0, 15.9); STAFF.snack.heading = 0; STAFF.snack.face = 0;
+  STAFF.snackKid.pos.set(-23.8, 0, 16.0); STAFF.snackKid.heading = -0.4; STAFF.snackKid.face = -0.4;
+  STAFF.snackKid.brain = c => { setAnim(c, Math.sin(MATCH.t * 0.4) > 0.6 ? 'wave' : 'idle'); };
+  // vendor behind the snack counter, facing the customers
+  STAFF.vendor.pos.set(-24.3, 0, 16.92); STAFF.vendor.heading = Math.PI; STAFF.vendor.face = Math.PI;
+  STAFF.vendor.brain = c => { setAnim(c, Math.sin(MATCH.t * 0.5 + 1) > 0.2 ? 'serve' : 'idle'); };
+}
+
+function makeTeam(club, side, dir, gk, base) {
+  const T = { club, side, dir, score: 0, fouls: 0, players: [], gkColor: gk, chaser: null, presser: null, cover: null, receiver: null, nextSub: rr(230, 330), zoneX: side === 'home' ? -7.5 : 7.5 };
+  club.roster.forEach(([name, num], i) => {
+    const c = PLAYERS[base + i];
+    const isGK = i === 0 || i === 5;
+    Object.assign(c, { team: T, name, num, role: ROLES[i], onCourt: i < 5, visible: false, co: null, brain: null, cool: 0, scale: rr(0.9, 1.02), bw: rr(0.9, 1.1), bh: rr(0.95, 1.05), headK: 1, rTarget: null, dTarget: null, face: null, runT: 0, decT: 0, holdT: 0, tackT: 0, hsReady: false });
+    c.vel.set(0, 0, 0); setAnim(c, 'idle');
+    c.hair = pick(['short', 'short', 'buzz', 'spiky', 'pony', 'long']);
+    c.opts = i === 1 ? ['capt'] : [];
+    const skin = pick(['skin', 'skin', 'skinD', 'dusk']), boot = pick(['ink', 'ink', 'white', 'crimson', 'blueL']);
+    const darkGK = ['purple', 'magenta', 'crimson'].includes(gk);
+    c.colors = isGK
+      ? { shirt: gk, sleeve: gk, arm: gk, trim: 'ink', shorts: 'ink', leg: 'ink', sock: 'ink', boot: 'white', hand: gk === 'yellow' ? 'white' : 'yellow', skin, hair: pick(HAIR), numc: darkGK ? 'white' : 'ink' }
+      : { shirt: club.shirt, sleeve: club.sleeve, trim: club.trim, shorts: club.shorts, sock: club.sock, boot, skin, hair: pick(HAIR), band: club.shirt === 'yellow' ? 'white' : 'yellow', numc: club.numc };
+    setCharColors(c); T.players.push(c);
+  });
+  const b = BENCH[side];
+  T.players.filter(p => !p.onCourt).forEach((p, i) => p.seatX = b.x0 + 0.4 + i * 1.3);
+  return T;
+}
+
+// ---------------- formation & support
+function formationSpot(p, bx = ball.p.x, bz = ball.p.z, possT = MATCH.possTeam) {
+  const T = p.team, d = T.dir;
+  if (p.role === 'GK') {
+    const gx = ownGoalX(T), dx = bx - gx, dz = bz, dd = Math.hypot(dx, dz) || 1, r = clamp(dd * 0.1, 0.5, 2.0);
+    return [gx + dx / dd * r, clamp(dz / dd * r, -1.4, 1.4)];
+  }
+  let [u, v] = FORM[p.role] || FORM.PIV;
+  const bu = bx * d, bv = bz * d, poss = possT === T ? 1 : possT ? -1 : 0;
+  u += poss > 0 ? 5.5 : poss < 0 ? -2.5 : 0;
+  if (p.role === 'WL' || p.role === 'WR') v *= poss > 0 ? 1.25 : 0.85;
+  u += clamp(bu * 0.4, -6, 6.5); v += clamp(bv * 0.35, -3, 3);
+  if (p.runT > MATCH.t) u += 6;
+  u = clamp(u, -16.5, 17); v = clamp(v, -9.3, 9.3);
+  return [u * d, v * d];
+}
+function supportSpot(p) {
+  let [x, z] = formationSpot(p);
+  const o = ball.owner;
+  if (o) { const dx = x - o.pos.x, dz = z - o.pos.z, d = Math.hypot(dx, dz); if (d < 4) { x = o.pos.x + dx / (d || 1) * 4; z = o.pos.z + dz / (d || 1) * 4; } }
+  if (p.markerT > MATCH.t && p.markerP) return p.markerP;
+  return clampCourt(x, z, 0.6);
+}
+function markSpot(p) {
+  const [x, z] = formationSpot(p);
+  let best = null, bd = 6;
+  for (const o of onCourt(other(p.team))) { if (o.role === 'GK') continue; const d = Math.hypot(o.pos.x - x, o.pos.z - z); if (d < bd) { bd = d; best = o; } }
+  if (!best) return [x, z];
+  const gx = ownGoalX(p.team), dx = gx - best.pos.x, dz = -best.pos.z, dd = Math.hypot(dx, dz) || 1;
+  return [lerp(x, best.pos.x + dx / dd * 1.5, 0.6), lerp(z, best.pos.z + dz / dd * 1.5, 0.6)];
+}
+function intercept(p, speed) {
+  for (let t = 0.1; t <= 3; t += 0.1) { const [x, z] = predictBall(t); if (Math.hypot(x - p.pos.x, z - p.pos.z) / speed <= t) return [x, z]; }
+  return predictBall(3);
+}
+function assignRoles(T) {
+  const outs = onCourt(T).filter(p => p.role !== 'GK' && !p.co);
+  T.chaser = T.presser = T.cover = null;
+  if (!ball.owner) {
+    if (T.receiver && T.receiver.onCourt && !T.receiver.co && MATCH.pass && MATCH.t - MATCH.pass.t < 3) { T.chaser = T.receiver; return; }
+    const [bx, bz] = predictBall(0.4);
+    let best = null, bt = 1e9;
+    for (const p of outs) { const t = Math.hypot(bx - p.pos.x, bz - p.pos.z) + (p.cool > 0 ? 3 : 0); if (t < bt) { bt = t; best = p; } }
+    T.chaser = best;
+  } else if (ball.owner.team !== T) {
+    const o = ball.owner;
+    outs.sort((a, b) => Math.hypot(a.pos.x - o.pos.x, a.pos.z - o.pos.z) - Math.hypot(b.pos.x - o.pos.x, b.pos.z - o.pos.z));
+    T.presser = outs[0] || null; T.cover = outs[1] || null;
+  } else {
+    for (const p of outs) if (p !== ball.owner && p.role !== 'DEF' && rnd() < 0.0035) p.runT = MATCH.t + 2.2;
+  }
+}
+
+// ---------------- brains
+function playThink(p, dt) {
+  if (p.cool > 0) p.cool -= dt;
+  const T = p.team;
+  if (MATCH.phase === 'restart') { const tg = p.rTarget || formationSpot(p); steer(p, tg[0], tg[1], 4.8, dt); p.face = angTo(p, ball.p.x, ball.p.z); return; }
+  if (MATCH.phase === 'dead') { const tg = p.dTarget || formationSpot(p); steer(p, tg[0], tg[1], p.dTarget ? (p.dSpeed || 3) : 2, dt); p.face = angTo(p, ball.p.x, ball.p.z); return; }
+  if (ball.owner === p) return carrierThink(p, dt);
+  if (p.role === 'GK') return gkThink(p, dt);
+  let tg, sp = 4;
+  if (!ball.owner) {
+    if (T.chaser === p) { tg = intercept(p, 6); sp = 6.3; }
+    else { tg = formationSpot(p); sp = 3.6; }
+  } else if (ball.owner.team === T) { tg = supportSpot(p); sp = p.runT > MATCH.t ? 5.5 : 4.2; }
+  else {
+    const o = ball.owner, gx = ownGoalX(T);
+    if (T.presser === p) { const dx = gx - o.pos.x, dz = -o.pos.z, d = Math.hypot(dx, dz) || 1; tg = [o.pos.x + dx / d * 0.6, o.pos.z + dz / d * 0.6]; sp = 5.6; }
+    else if (T.cover === p) { tg = [lerp(o.pos.x, gx, 0.35), lerp(o.pos.z, 0, 0.35)]; sp = 4.6; }
+    else { tg = markSpot(p); sp = 4; }
+  }
+  tg = clampCourt(tg[0], tg[1], 0.2);
+  steer(p, tg[0], tg[1], sp, dt);
+  p.face = angTo(p, ball.p.x, ball.p.z);
+}
+function gkThink(p, dt) {
+  const T = p.team, gx = ownGoalX(T), s = Math.sign(gx);
+  let tx, tz, sp = 3.5;
+  setAnim(p, p.anim === 'dive' && p.at < 0.7 ? 'dive' : 'gkready');
+  const toward = !ball.owner && ball.v.x * s > 4;
+  if (toward && Math.abs(ball.p.x - gx) < 16) {
+    const t = (gx - ball.p.x) / ball.v.x, zc = ball.p.z + ball.v.z * t;
+    tx = gx - s * 0.5; tz = clamp(zc, -1.7, 1.7); sp = 6;
+    if (t < 0.45 && Math.abs(zc - p.pos.z) > 0.7 && Math.abs(zc) < 2 && p.anim !== 'dive') { setAnim(p, 'dive'); p.diveSide = (zc > p.pos.z ? -1 : 1) * s; }
+  } else if (!ball.owner && inArea(T, ball.p.x, ball.p.z) && ball.v.length() < 7 && Math.abs(ball.p.z) < 5) {
+    [tx, tz] = intercept(p, 5); sp = 5.5;
+  } else { [tx, tz] = formationSpot(p); }
+  steer(p, tx, tz, sp, dt);
+  p.face = angTo(p, ball.p.x, ball.p.z);
+}
+function carrierThink(p, dt) {
+  const T = p.team, d = T.dir;
+  if (ball.hands) {
+    p.holdT += dt; setAnim(p, 'hold'); steer(p, p.pos.x, p.pos.z, 0, dt); p.face = angTo(p, 0, 0);
+    if (p.holdT > 1.3) gkDistribute(p); return;
+  }
+  p.decT -= dt; p.holdT += dt;
+  const gx = 20 * d;
+  let dx = gx - p.pos.x, dz = (0 - p.pos.z) * 0.5;
+  const n = nearestOpp(p);
+  if (n && n.d < 3) { const ax = p.pos.x - n.c.pos.x, az = p.pos.z - n.c.pos.z; dx += ax * 1.2; dz += az * 2.4 + (p.pos.z > 0 ? -1 : 1) * 0.4; }
+  const dl = Math.hypot(dx, dz) || 1;
+  const [tx, tz] = clampCourt(p.pos.x + dx / dl * 3, p.pos.z + dz / dl * 3, 0.9);
+  steer(p, tx, tz, p.role === 'GK' ? 2.5 : 4.4, dt);
+  if (MATCH.nudge && p.decT > 0.12) p.decT = 0.12;
+  const nearLine = Math.abs(p.pos.x) > 18.6 || Math.abs(p.pos.z) > 9.1;
+  if (p.decT <= 0 || nearLine || p.holdT > 4) { p.decT = rr(0.35, 0.8); decide(p); }
+}
+
+// ---------------- decisions
+function bestPass(p, short = false) {
+  const T = p.team, d = T.dir, opps = onCourt(other(T));
+  let best = null, bs = -1e9;
+  for (const r of onCourt(T)) {
+    if (r === p || r.co) continue;
+    const pt = clampCourt(r.pos.x + r.vel.x * 0.5, r.pos.z + r.vel.z * 0.5, 0.5);
+    const dx = pt[0] - ball.p.x, dz = pt[1] - ball.p.z, dist = Math.hypot(dx, dz);
+    if (dist < 2.5 || dist > (short ? 11 : 24)) continue;
+    let lane = 9;
+    for (const o of opps) {
+      const ox = o.pos.x - ball.p.x, oz = o.pos.z - ball.p.z, t = clamp((ox * dx + oz * dz) / (dist * dist), 0, 1);
+      lane = Math.min(lane, Math.hypot(ox - dx * t, oz - dz * t));
+    }
+    let lob = false, safety = clamp((lane - 0.6) / 2, 0, 1);
+    if (safety < 0.3 && dist > 9 && rnd() < 0.3) { lob = true; safety = 0.5; }
+    const progress = (pt[0] - p.pos.x) * d;
+    let sc = safety * 2.2 + progress * 0.11 - Math.abs(dist - 7) * 0.07 + rnd() * 0.5;
+    if (r.role === 'GK') sc -= 1.2;
+    if (sc > bs) { bs = sc; best = { r, pt, lob, safety }; }
+  }
+  return best && best.safety > 0.12 ? best : null;
+}
+function decide(p) {
+  const T = p.team, d = T.dir, gx = 20 * d;
+  const distG = Math.hypot(gx - p.pos.x, p.pos.z);
+  if (MATCH.nudge) { const nz = MATCH.nudge; MATCH.nudge = null; if (doNudge(p, nz)) return; }
+  if (p.role === 'GK') { const o = bestPass(p) || { r: nearestOutfield(T, [p.pos.x, p.pos.z], p) }; if (o.r) pass(p, o.r, o.pt || [o.r.pos.x, o.r.pos.z], !!o.lob); return; }
+  const n = nearestOpp(p), press = n ? n.d : 9;
+  let pShot = distG < 7 ? 0.75 : distG < 12 ? 0.36 : distG < 18 ? 0.14 : 0;
+  if (Math.abs(p.pos.z) > 7.5 && distG > 8) pShot *= 0.25;
+  if (rnd() < pShot) return shoot(p);
+  if (p.pos.x * d > 14 && Math.abs(p.pos.z) > 5 && rnd() < 0.16) return cross(p);
+  const o = bestPass(p);
+  const forced = Math.abs(p.pos.x) > 18.6 || Math.abs(p.pos.z) > 9.1 || p.holdT > 4;
+  if (o && (forced || rnd() < (press < 2.2 ? 0.85 : 0.45))) return pass(p, o.r, o.pt, o.lob);
+  if (forced) { const r = nearestOutfield(T, [p.pos.x, p.pos.z], p); if (r) pass(p, r, [r.pos.x, r.pos.z], false); }
+}
+function doNudge(p, nz) {
+  const T = p.team, d = T.dir, mates = onCourt(T).filter(r => r !== p && r.role !== 'GK' && !r.co);
+  if (!mates.length && nz.type !== 'shoot') return false;
+  if (nz.type === 'shoot') { say(`看台上齐声高喊“射门！”——${nm(p)}应声起脚。`); shoot(p, 21); return true; }
+  if (nz.type === 'square') {
+    let best = null, bs = 1e9;
+    for (const r of mates) { const du = Math.abs((r.pos.x - p.pos.x) * d), dv = Math.abs(r.pos.z - p.pos.z); const s = du * 2 - Math.min(dv, 8); if (dv > 2.5 && s < bs) { bs = s; best = r; } }
+    best = best || mates[0];
+    say(`${nm(p)}横传给${best.name}，正合看台的心意。`);
+    pass(p, best, clampCourt(best.pos.x, best.pos.z, 0.5), false); return true;
+  }
+  if (nz.type === 'long') {
+    const best = mates.reduce((a, b) => (b.pos.x * d > a.pos.x * d ? b : a));
+    const pt = clampCourt(best.pos.x + d * 2.5, best.pos.z, 0.8); best.runT = MATCH.t + 2;
+    say(`${nm(p)}大脚长传，找${best.name}。`);
+    pass(p, best, pt, true); return true;
+  }
+  if (nz.type === 'marker') {
+    const m = nz.p; const best = mates.reduce((a, b) => (Math.hypot(b.pos.x - m.x, b.pos.z - m.z) < Math.hypot(a.pos.x - m.x, a.pos.z - m.z) ? b : a));
+    best.markerP = [m.x, m.z]; best.markerT = MATCH.t + 3;
+    const dist = Math.hypot(m.x - ball.p.x, m.z - ball.p.z);
+    let lob = false;
+    for (const o of onCourt(other(T))) { const ox = o.pos.x - ball.p.x, oz = o.pos.z - ball.p.z, dx = m.x - ball.p.x, dz = m.z - ball.p.z, t = clamp((ox * dx + oz * dz) / (dist * dist || 1), 0, 1); if (Math.hypot(ox - dx * t, oz - dz * t) < 1) lob = dist > 7; }
+    say(`${nm(p)}看到了空当，${lob ? '一记挑传越过防线' : '把球送到标记的位置'}，找到${best.name}。`);
+    pass(p, best, [m.x, m.z], lob); marker.visible = false; return true;
+  }
+  return false;
+}
+function kick(p, vel) {
+  ball.owner = null; ball.hands = false; ball.v.copy(vel); if (ball.p.y < R) ball.p.y = R;
+  ball.air = vel.y > 0.05; ball.sliding = !ball.air; ball.slideV0 = Math.hypot(vel.x, vel.z);
+  ball.lastTouch = p; p.cool = 0.35; p.holdT = 0; setAnim(p, 'kick');
+}
+function pass(p, r, pt, lob) {
+  if (!r) return;
+  const dx = pt[0] - ball.p.x, dz = pt[1] - ball.p.z, dist = Math.max(0.5, Math.hypot(dx, dz));
+  const err = rr(-0.05, 0.05);
+  const ca = Math.cos(err), sa = Math.sin(err);
+  let vel;
+  if (lob) { const T = 0.7 + dist * 0.055; vel = lobVelocity(ball.p, new V3(pt[0], 0.4, pt[1]), T); }
+  else { const v0 = groundPassSpeed(dist, clamp(2.8 + dist * 0.1, 2.8, 5)); vel = new V3(dx / dist * v0, 0, dz / dist * v0); }
+  vel.set(vel.x * ca - vel.z * sa, vel.y, vel.x * sa + vel.z * ca);
+  kick(p, vel);
+  MATCH.pass = { from: p, to: r, t: MATCH.t, lob }; p.team.receiver = r; other(p.team).receiver = null;
+  if (lob && rnd() < 0.3) say(pick([`${nm(p)}挑传找${r.name}。`, `${p.name}送出一记高球，寻找${r.name}。`]));
+}
+function shoot(p, power, placed = false) {
+  const gx = 20 * p.team.dir;
+  const zt = pick([-1, 1]) * rr(placed ? 0.8 : 0.4, 1.35), yt = rnd() < 0.6 ? rr(0.15, 0.7) : rr(0.8, 1.8);
+  const tgt = new V3(gx + Math.sign(gx) * 0.6, yt, zt);
+  const dist = tgt.distanceTo(ball.p), speed = power || rr(15, 21);
+  const vel = lobVelocity(ball.p, tgt, dist / speed);
+  const spray = placed ? 0.4 : 0.5 + dist * 0.05;
+  vel.z += rr(-1, 1) * spray; vel.y += rr(-0.5, 0.6) * (placed ? 0.5 : 1);
+  kick(p, vel);
+  MATCH.shot = { by: p, team: p.team, t: MATCH.t, rolled: false, dist };
+  MATCH.shots++; MATCH.ooh = MATCH.t + 1.2; flashPhoto();
+  if (!placed) say(dist > 11 ? pick([`${nm(p)}在${Math.round(dist)}米外尝试远射。`, `${nm(p)}一脚劲射！`, `${nm(p)}远距离起脚！`]) : pick([`${nm(p)}近距离打门！`, `${nm(p)}在${Math.round(dist)}米处抢射！`, `${nm(p)}获得射门机会！`]));
+}
+function cross(p) {
+  const d = p.team.dir, tgt = [d * rr(14.5, 17), rr(-2.5, 2.5)];
+  const r = nearestOutfield(p.team, tgt, p); if (!r) return;
+  r.markerP = tgt; r.markerT = MATCH.t + 2.5;
+  const vel = lobVelocity(ball.p, new V3(tgt[0], 1.0, tgt[1]), 1.15);
+  kick(p, vel); MATCH.pass = { from: p, to: r, t: MATCH.t, lob: true }; p.team.receiver = r;
+  say(pick([`${nm(p)}难得送出一脚传中。`, `${p.name}把球传进禁区！`]));
+}
+function gkDistribute(p) {
+  const o = bestPass(p);
+  const r = o ? o.r : nearestOutfield(p.team, [p.pos.x, p.pos.z], p);
+  if (!r) return;
+  const pt = o ? o.pt : [r.pos.x, r.pos.z];
+  const dist = Math.hypot(pt[0] - p.pos.x, pt[1] - p.pos.z);
+  ball.p.y = 1.3 * p.scale;
+  const vel = dist > 6 ? lobVelocity(ball.p, new V3(pt[0], 0.4, pt[1]), 0.45 + dist * 0.035) : new V3((pt[0] - ball.p.x) / dist * 6, 0, (pt[1] - ball.p.z) / dist * 6);
+  if (dist <= 6) ball.p.y = R;
+  kick(p, vel); setAnim(p, 'throw');
+  MATCH.pass = { from: p, to: r, t: MATCH.t }; p.team.receiver = r;
+}
+
+// ---------------- live checks: control, tackles, out of play, goals
+function tryControl() {
+  let best = null, bd = 1e9, gkC = false;
+  const spd = ball.v.length();
+  for (const T of [MATCH.home, MATCH.away]) for (const c of onCourt(T)) {
+    if (c.cool > 0 || c.co || c.brain !== playThink) continue;
+    const dh = Math.hypot(ball.p.x - c.pos.x, ball.p.z - c.pos.z);
+    const isGK = c.role === 'GK' && inArea(T, ball.p.x, ball.p.z);
+    const reach = isGK ? (c.anim === 'dive' ? 1.6 : 1.0) : 0.62, hmax = isGK ? 2.4 : 1.0;
+    if (dh < reach && ball.p.y < hmax && dh < bd) { bd = dh; best = c; gkC = isGK; }
+  }
+  if (!best) return;
+  const c = best, sh = MATCH.shot;
+  if (sh && !sh.rolled && c.team !== sh.team && MATCH.t - sh.t < 2.5) {
+    if (gkC) {
+      sh.rolled = true;
+      const pSave = clamp(0.9 - (spd - 12) * 0.04 - (sh.dist < 8 ? 0.2 : 0), 0.3, 0.88);
+      if (rnd() < pSave) {
+        MATCH.saves++;
+        if (spd < 17 && ball.p.y < 1.9 && rnd() < 0.6) { gainBall(c, true); say(pick([`扑住了！${nm(c)}稳稳把球抱住。`, `${c.name}轻松将球没收。`])); }
+        else {
+          ball.v.set(-ball.v.x * 0.35, rr(1.5, 3.5), ball.v.z * 0.4 + rr(-4, 4)); ball.air = true;
+          ball.lastTouch = c; c.cool = 0.5; MATCH.shot = null;
+          say(pick([`${nm(c)}一个漂亮的扑救！`, `${c.name}把球托了出去！`, `${c.name}奋力将球挡出。`]));
+        }
+      } else { c.cool = 0.7; }
+      return;
+    }
+    if (rnd() < 0.3) { ball.v.multiplyScalar(-0.3); ball.v.x += rr(-2, 2); ball.v.z += rr(-3, 3); ball.lastTouch = c; c.cool = 0.4; MATCH.shot = null; say(`${c.name}把球封堵了出去！`); }
+    else c.cool = 0.4;
+    return;
+  }
+  if (spd > 13 && !gkC && rnd() < 0.5) { ball.v.multiplyScalar(0.35); ball.v.x += rr(-1.5, 1.5); ball.v.z += rr(-1.5, 1.5); ball.lastTouch = c; c.cool = 0.25; return; }
+  gainBall(c, gkC && ball.lastTouch && ball.lastTouch.team !== c.team);
+}
+function gainBall(c, hands) {
+  const prev = MATCH.possTeam;
+  ball.owner = c; ball.hands = !!hands; ball.v.set(0, 0, 0); ball.air = false;
+  ball.lastTouch = c; MATCH.possTeam = c.team; MATCH.shot = null;
+  c.decT = rr(0.25, 0.6); c.holdT = 0; c.team.receiver = null; other(c.team).receiver = null;
+  if (prev && prev !== c.team && MATCH.pass && MATCH.pass.from.team !== c.team && rnd() < 0.35) say(pick([`${nm(c)}断下了这脚传球。`, `${c.name}预判准确，上前拦截。`]));
+}
+function tryTackles() {
+  const o = ball.owner; if (!o || ball.hands) return;
+  for (const d of onCourt(other(o.team))) {
+    if (d.cool > 0 || d.role === 'GK' && !inArea(d.team, d.pos.x, d.pos.z)) continue;
+    if (Math.hypot(d.pos.x - o.pos.x, d.pos.z - o.pos.z) > 0.95) { d.tackT = 0; continue; }
+    d.tackT += DT;
+    if (d.tackT < 0.35) continue;
+    d.tackT = 0;
+    const r = rnd();
+    if (r < 0.1) return commitFoul(d, o);
+    if (r < 0.42) { o.cool = 0.6; gainBall(d, false); if (rnd() < 0.3) say(pick([`${nm(d)}把球抢了回来。`, `${d.name}一次干净利落的抢断。`])); return; }
+    d.cool = 0.35;
+  }
+}
+function commitFoul(d, a) {
+  const T = d.team; T.fouls++; MATCH.fouls++;
+  const spot = clampCourt(a.pos.x, a.pos.z, 0.4);
+  ball.owner = null; ball.hands = false; ball.v.set(0, 0, 0);
+  MATCH.phase = 'dead'; setAnim(a, 'sit'); a.cool = 1;
+  let kind = 'free';
+  if (inArea(T, spot[0], spot[1])) kind = 'penalty';
+  else if (T.fouls >= 6) kind = 'tenm';
+    if (kind === 'penalty') say(`点球！${nm(d)}在禁区内放倒了${a.name}。`);
+  else if (kind === 'tenm') say(`${d.name}犯规——这已是${T.club.short}本半场第${T.fouls}次全队犯规，判罚10米球！`);
+  else say(`${nm(d)}对${a.name}犯规。${T.club.short}本半场已累计${T.fouls}次全队犯规${T.fouls === 5 ? '，再犯一次就要被罚10米球' : ''}。`);
+  const ad = a.team.dir;
+  const kspot = kind === 'penalty' ? [ad * 14, 0] : kind === 'tenm' ? [ad * 10, 0] : spot;
+  MATCH.pending = { type: 'foul', kind, team: a.team, spot: kspot };
+}
+function checkBall() {
+  const b = ball.p, ax = Math.abs(b.x);
+  // woodwork
+  if (ax > 20 - R && ax < 20.3 && b.y < 2.1 && ball.v.x * Math.sign(b.x) > 0) {
+    if (Math.abs(Math.abs(b.z) - 1.5) < 0.08 + R) { ball.v.x *= -0.6; ball.v.z += Math.sign(b.z) * 1.5; b.x = Math.sign(b.x) * (20 - R - 0.02); say(pick(['击中门柱！', '球打在门柱上弹了回来！'])); MATCH.shot = null; return; }
+    if (Math.abs(b.z) < 1.5 && Math.abs(b.y - 2) < 0.08 + R) { ball.v.x *= -0.5; ball.v.y = -Math.abs(ball.v.y) * 0.5; b.x = Math.sign(b.x) * (20 - R - 0.02); say('球狠狠砸在横梁上！'); MATCH.shot = null; return; }
+  }
+  if (ax > 20 + R) {
+    const end = Math.sign(b.x);
+    const att = MATCH.home.dir === end ? MATCH.home : MATCH.away, def = other(att);
+    if (Math.abs(b.z) < 1.5 - R * 0.5 && b.y < 2 - R) {
+      const lt = ball.lastTouch, own = lt && lt.team !== att;
+      MATCH.phase = 'dead';
+      MATCH.pending = { type: 'goal', team: att, scorer: own ? null : lt, own: own ? lt : null };
+      return;
+    }
+    MATCH.phase = 'dead'; kidWave();
+    if (MATCH.shot) say(pick([`${MATCH.shot.by.name}的射门偏出。`, `${MATCH.shot.by.name}的射门擦着门柱出去了。`, `${MATCH.shot.by.name}的射门高出横梁。`]));
+    MATCH.shot = null;
+    if (ball.lastTouch && ball.lastTouch.team === def) {
+      MATCH.pending = { type: 'out', kind: 'corner', team: att, spot: [end * 20, Math.sign(b.z || 1) * 10] };
+      if (rnd() < 0.5) say(`${att.club.short}获得角球。`);
+    } else MATCH.pending = { type: 'out', kind: 'goalclear', team: def, spot: [end * 18.4, 0] };
+    return;
+  }
+  if (Math.abs(b.z) > 10 + R) {
+    const T = ball.lastTouch ? other(ball.lastTouch.team) : MATCH.home;
+    MATCH.phase = 'dead'; kidWave(); MATCH.shot = null;
+    MATCH.pending = { type: 'out', kind: 'kickin', team: T, spot: [clamp(b.x, -19.5, 19.5), Math.sign(b.z) * 10] };
+    if (rnd() < 0.2) say(`${T.club.short}获得边线球。`);
+  }
+}
+function kidWave() {
+  const k = Math.abs(ball.p.x - STAFF.kid1.pos.x) < Math.abs(ball.p.x - STAFF.kid2.pos.x) ? STAFF.kid1 : STAFF.kid2;
+  k.waveUntil = MATCH.t + 1.6;
+}
+function flashPhoto() { MATCH.flashT = 0.16; }
+
+function liveTick() {
+  for (const T of [MATCH.home, MATCH.away]) assignRoles(T);
+  if (MATCH.shot && MATCH.t - MATCH.shot.t > 2.5) MATCH.shot = null;
+  if (!ball.owner) tryControl(); else tryTackles();
+  if (MATCH.phase === 'live' && !ball.owner) checkBall();
+}
+
+// ---------------- restarts
+function restartSpot(p, kind, T, spot) {
+  const att = p.team === T, d = p.team.dir;
+  if (kind === 'kickoff') {
+    let [x, z] = formationSpot(p, 0, 0, null);
+    if (x * d > -0.8) x = -0.8 * d;
+    if (!att && Math.hypot(x, z) < 3.4) { const k = 3.5 / (Math.hypot(x, z) || 1); x *= k; z *= k; }
+    if (att && p.role === 'WR') { x = -0.6 * d; z = 2.2 * d; }
+    return [x, z];
+  }
+  if (kind === 'penalty' || kind === 'tenm') {
+    const gx = ownGoalX(p.team);
+    if (p.role === 'GK' && !att) return [gx - Math.sign(gx) * 0.15, 0];
+    if (p.role === 'GK') return [ownGoalX(p.team) - Math.sign(ownGoalX(p.team)) * 1, 0];
+    const i = onCourt(p.team).indexOf(p);
+    return [spot[0] - T.dir * (5.6 + (i % 2) * 1.2), (i - 2) * 2.2 * (att ? 1 : -1) + (att ? 0.6 : -0.6)];
+  }
+  let [x, z] = formationSpot(p, spot[0], spot[1], T);
+  if (!att && MATCH.wall && MATCH.wall.includes(p)) {
+    const gx = ownGoalX(p.team), dx = gx - spot[0], dz = -spot[1], dd = Math.hypot(dx, dz) || 1, k = MATCH.wall.indexOf(p);
+    return [spot[0] + dx / dd * 5 - dz / dd * (k ? 0.35 : -0.35), spot[1] + dz / dd * 5 + dx / dd * (k ? 0.35 : -0.35)];
+  }
+  if (!att && p.role !== 'GK') {
+    const dx = x - spot[0], dz = z - spot[1], dd = Math.hypot(dx, dz);
+    if (dd < 5) { const ux = dd > 0.01 ? dx / dd : -T.dir, uz = dd > 0.01 ? dz / dd : 0; x = spot[0] + ux * 5; z = spot[1] + uz * 5; }
+  }
+  return clampCourt(x, z, 0.4);
+}
+function* restart(kind, T, spot) {
+  MATCH.phase = 'restart'; MATCH.rkind = kind; MATCH.shot = null; MATCH.pass = null; MATCH.wall = null;
+  ballPlace(spot[0], spot[1]);
+  MATCH.home.receiver = MATCH.away.receiver = null;
+  const O = other(T), d = T.dir;
+  for (const p of [...onCourt(T), ...onCourt(O)]) { if (p.anim === 'sit') setAnim(p, 'idle'); }
+  let taker;
+  if (kind === 'goalclear') taker = gkOf(T);
+  else if (kind === 'penalty' || kind === 'tenm' || kind === 'kickoff') taker = onCourt(T).find(p => p.role === 'PIV' && !p.co);
+  taker = taker || nearestOutfield(T, spot);
+  if (!taker) { MATCH.phase = 'live'; return; }
+  if (kind === 'free' && Math.hypot(ownGoalX(O) - spot[0], spot[1]) < 16) {
+    MATCH.wall = onCourt(O).filter(p => p.role !== 'GK').sort((a, b) => Math.hypot(a.pos.x - spot[0], a.pos.z - spot[1]) - Math.hypot(b.pos.x - spot[0], b.pos.z - spot[1])).slice(0, 2);
+  }
+  for (const p of [...onCourt(T), ...onCourt(O)]) p.rTarget = restartSpot(p, kind, T, spot);
+  if (kind === 'kickin') taker.rTarget = [spot[0], spot[1] + Math.sign(spot[1]) * 0.45];
+  else if (kind === 'goalclear') taker.rTarget = [spot[0], spot[1]];
+  else if (kind === 'corner') taker.rTarget = [spot[0] + Math.sign(spot[0]) * 0.35, spot[1] + Math.sign(spot[1]) * 0.35];
+  else taker.rTarget = [spot[0] - d * 0.45, spot[1]];
+  MATCH.taker = taker;
+  yield* waitUntil(() => Math.hypot(taker.pos.x - taker.rTarget[0], taker.pos.z - taker.rTarget[1]) < 0.35, 4.5);
+  taker.pos.x = taker.rTarget[0]; taker.pos.z = taker.rTarget[1]; taker.vel.set(0, 0, 0);
+  yield* wait(kind === 'kickoff' ? 1.0 : kind === 'penalty' || kind === 'tenm' ? 1.6 : 0.6);
+  MATCH.phase = 'live';
+  for (const p of [...onCourt(T), ...onCourt(O)]) p.rTarget = null;
+  ball.lastTouch = taker; MATCH.possTeam = T;
+  if (kind === 'goalclear') { ball.owner = taker; ball.hands = true; taker.holdT = 0.5; return; }
+  if (kind === 'penalty' || kind === 'tenm') { say(`${nm(taker)}站上${kind === 'penalty' ? '6' : '10'}米点……`); shoot(taker, rr(16, 21), true); return; }
+  if (kind === 'corner' && rnd() < 0.35) { cross(taker); return; }
+  if (kind === 'free' && Math.hypot(20 * d - spot[0], spot[1]) < 15 && rnd() < 0.55) { shoot(taker, rr(16, 22)); return; }
+  const o = bestPass(taker, kind === 'kickoff' || kind === 'kickin');
+  if (o) pass(taker, o.r, o.pt, o.lob);
+  else { const r = nearestOutfield(T, [taker.pos.x, taker.pos.z], taker); if (r) pass(taker, r, [r.pos.x, r.pos.z], false); }
+}
+
+// ---------------- substitutions (rolling)
+function doSub(T) {
+  if (ball.owner && ball.owner.team === T && Math.abs(ball.owner.pos.x - T.zoneX) < 6) return;
+  const outs = onCourt(T).filter(p => p.role !== 'GK' && p !== ball.owner && p !== T.chaser && !p.co);
+  const ins = T.players.filter(p => !p.onCourt && p.role === 'SUB' && !p.co);
+  if (!outs.length || !ins.length) return;
+  const out = pick(outs), inn = pick(ins), role = out.role, seat = inn.seatX;
+  out.onCourt = false; out.brain = null; out.role = 'SUB'; out.seatX = seat;
+  MATCH.subs++;
+  say(`${T.club.short}换人：${nm(inn)}上场，${out.name}下场。`);
+  out.co = (function* () {
+    yield* goDirect(out, T.zoneX - 0.8, 9.7, 2.6);
+    yield* goDirect(out, seat, BENCH.z - 0.8, 1.6);
+    yield* goDirect(out, seat, BENCH.z - 0.05, 1, 0.08);
+    out.pos.set(seat, 0, BENCH.z - 0.05); out.vel.set(0, 0, 0); out.face = Math.PI; out.heading = Math.PI; setAnim(out, 'sit'); out.brain = benchBrain;
+  })();
+  inn.brain = null;
+  inn.co = (function* () {
+    setAnim(inn, 'idle');
+    yield* goDirect(inn, seat, BENCH.z - 0.8, 1.6);
+    yield* goDirect(inn, T.zoneX + 0.8, 10.3, 2.2);
+    yield* waitUntil(() => !out.onCourt && Math.hypot(out.pos.x - T.zoneX, out.pos.z - 9.7) < 2.5 || !out.co, 8);
+    inn.role = role; inn.onCourt = true; inn.brain = playThink; inn.cool = 0;
+  })();
+}
+function benchBrain(c) { c.face = Math.PI; }
+function refBrain(c, dt) {
+  const tx = clamp(ball.p.x * 0.85, -17, 17);
+  steer(c, tx, -10.8, 4.6, dt, 0.6); c.face = angTo(c, ball.p.x, ball.p.z);
+  setAnim(c, MATCH.phase === 'dead' && MATCH.pending ? 'wave' : 'idle');
+}
+function coachBrain(c) {
+  c.face = angTo(c, ball.p.x, ball.p.z);
+  const side = c === STAFF.coachH ? 0 : 1;
+  if (MATCH.cheer && MATCH.t < MATCH.cheer.until && MATCH.cheer.side === side) setAnim(c, 'celebrate');
+  else setAnim(c, Math.sin(MATCH.t * 0.7 + side * 2) > 0.85 ? 'wave' : 'idle');
+}
+
+// ---------------- scripted phases
+function* walkoutCo(c) {
+  if (c.kind === 'player') { const T = c.team; yield* walkTo(c, -T.dir * rr(4, 14), rr(-8, 8), 2.4); c.face = angTo(c, 0, 0); return; }
+  if (c === STAFF.ref) { yield* walkTo(c, 0, -10.8, 2); c.face = 0; return; }
+  if (c === STAFF.time) { yield* walkTo(c, 0.3, 10.8, 1.6); yield* goDirect(c, 0.3, 12.0, 1, 0.08); c.pos.set(0.3, 0, 12.0); c.face = Math.PI; c.heading = Math.PI; setAnim(c, 'sit'); return; }
+  if (c === STAFF.coachH || c === STAFF.coachA) { const x = c === STAFF.coachH ? -4.4 : 4.4; yield* walkTo(c, x, 10.9, 1.6); c.brain = coachBrain; return; }
+}
+function* warmupCo(p) {
+  const own = -p.team.dir;
+  if (p.role === 'GK' || p.role === 'GK2') {
+    yield* goDirect(p, own * (p.role === 'GK' ? 18.6 : 15), rr(-1, 1), 2.4);
+    while (MATCH.state === 'warmup') { p.face = angTo(p, 0, 0); setAnim(p, pick(['stretch', 'dive', 'idle'])); p.diveSide = pick([-1, 1]); yield* wait(rr(0.8, 1.6)); setAnim(p, 'idle'); yield* goDirect(p, own * 18.6, rr(-1.3, 1.3), 2.5); }
+    return;
+  }
+  while (MATCH.state === 'warmup') {
+    yield* goDirect(p, own * rr(3, 15), rr(-8.5, 8.5), rr(2, 4.2));
+    p.face = angTo(p, 0, 0); setAnim(p, pick(['stretch', 'kick', 'idle', 'clap']));
+    yield* wait(rr(0.7, 1.6)); setAnim(p, 'idle');
+  }
+}
+function* toBenchCo(p) {
+  setAnim(p, 'idle');
+  yield* goDirect(p, p.seatX, BENCH.z - 0.9, 2.2);
+  yield* goDirect(p, p.seatX, BENCH.z - 0.05, 1, 0.08);
+  p.pos.set(p.seatX, 0, BENCH.z - 0.05); p.vel.set(0, 0, 0); p.face = Math.PI; p.heading = Math.PI; setAnim(p, 'sit'); p.brain = benchBrain;
+}
+function* director() {
+  const H = MATCH.home, A = MATCH.away, players = [...H.players, ...A.players];
+  const staff = [STAFF.ref, STAFF.time, STAFF.coachH, STAFF.coachA];
+  for (const c of [...players, ...staff]) { c.visible = false; c.co = null; c.brain = null; c.pos.set(SX + 0.7, 0, 0); c.vel.set(0, 0, 0); setAnim(c, 'idle'); }
+  ballPlace(0, 0);
+  MATCH.state = 'walkout'; MATCH.phase = 'dead';
+  say(`欢迎来到第12学校！${H.club.name}主场迎战${A.club.name}，双方球员入场。`);
+  const order = [STAFF.ref, STAFF.time];
+  for (let i = 0; i < 9; i++) order.push(H.players[i], A.players[i]);
+  order.push(STAFF.coachH, STAFF.coachA);
+  for (const c of order) { c.visible = true; c.pos.set(SX + 0.7, 0, rr(-0.5, 0.5)); c.heading = Math.PI / 2; c.co = walkoutCo(c); yield* wait(0.45); }
+  MATCH.cheer = { side: -1, until: MATCH.t + 3 };
+  yield* waitUntil(() => order.every(c => !c.co), 50);
+  MATCH.state = 'warmup';
+  say('热身时间：拉伸、冲刺，再来几下花式挑球。');
+  for (const p of players) p.co = warmupCo(p);
+  yield* wait(14);
+  MATCH.state = 'lineup';
+  yield* waitUntil(() => players.every(p => !p.co), 8);
+  for (const p of players) p.co = null;
+  for (const T of [H, A]) {
+    T.players.filter(p => !p.onCourt).forEach(p => p.co = toBenchCo(p));
+    onCourt(T).forEach((p, i) => { p.co = goDirect(p, -T.dir * 1.3 * (i + 1), -1.4, 2.2); });
+  }
+  STAFF.ref.co = goDirect(STAFF.ref, 0, -1.4, 2);
+  yield* waitUntil(() => [...onCourt(H), ...onCourt(A), STAFF.ref].every(c => !c.co), 20);
+  for (const c of [...onCourt(H), ...onCourt(A), STAFF.ref]) { c.face = 0; setAnim(c, 'wave'); }
+  say('双方列队完毕，向看台挥手致意。');
+  MATCH.cheer = { side: -1, until: MATCH.t + 3 };
+  yield* wait(3);
+  for (const c of [...onCourt(H), ...onCourt(A), STAFF.ref]) setAnim(c, 'idle');
+  STAFF.ref.brain = refBrain;
+  MATCH.state = 'kickoff';
+  for (let half = 1; half <= 2; half++) {
+    MATCH.half = half; MATCH.clock = 0; H.fouls = A.fouls = 0; H.nextSub = rr(230, 330); A.nextSub = rr(230, 330);
+    for (const T of [H, A]) for (const p of T.players) { if (p.onCourt) { p.brain = playThink; p.co = null; setAnim(p, 'idle'); } }
+    const kt = half === 1 ? H : A;
+    MATCH.state = 'play'; MATCH.possTeam = kt;
+    say(half === 1 ? `比赛开始！${kt.club.short}率先开球。` : `下半场开始，由${kt.club.short}开球。`);
+    yield* restart('kickoff', kt, [0, 0]);
+    while (MATCH.clock < CFG.HALF) {
+      if (MATCH.pending) { const ev = MATCH.pending; MATCH.pending = null; yield* handleEvent(ev); continue; }
+      for (const T of [H, A]) if (MATCH.phase === 'live' && MATCH.clock > T.nextSub) { T.nextSub = MATCH.clock + rr(300, 420); doSub(T); }
+      yield;
+    }
+    MATCH.phase = 'dead'; MATCH.pending = null; ball.owner = null; ball.hands = false; MATCH.shot = null;
+    if (half === 1) yield* halftime();
+  }
+  yield* fulltime();
+}
+function* handleEvent(ev) {
+  MATCH.phase = 'dead';
+  if (ev.type === 'goal') { yield* celebrate(ev); MATCH.state = 'play'; yield* restart('kickoff', other(ev.team), [0, 0]); return; }
+  yield* wait(ev.type === 'foul' ? 1.3 : 0.9);
+  yield* restart(ev.kind, ev.team, ev.spot);
+}
+function* celebrate(ev) {
+  MATCH.state = 'goal';
+  const T = ev.team, end = 20 * T.dir, s = Math.sign(end);
+  T.score++; MATCH.goals++;
+  const sc = ev.scorer && ev.scorer.onCourt ? ev.scorer : nearestOutfield(T, [ball.p.x, ball.p.z]);
+  const g = GOALS.find(g => g.s === s); if (g) g.shake = 1;
+  MATCH.cheer = { side: T === MATCH.home ? 0 : 1, until: MATCH.t + 5 }; flashPhoto();
+  const line = scoreLine();
+  if (ev.own) say(`乌龙球！${ev.own.name}把球碰进了自家球门。${line}。`, 'goal');
+  else say(pick([`球进了！${nm(sc)}为${T.club.short}破门！${line}。`, `${nm(sc)}推射远角……球进了！${line}。`, `球进了！${sc.name}这脚射门势不可挡。${line}。`]), 'goal');
+  showBanner(`球进了！${line}`);
+  for (const p of onCourt(T)) { p.dTarget = null; setAnim(p, 'celebrate'); }
+  for (const p of onCourt(other(T))) { p.dTarget = formationSpot(p, 0, 0, null); p.dSpeed = 1.4; setAnim(p, 'idle'); }
+  const corner = [s * 17.5, sc.pos.z > 0 ? 8.5 : -8.5];
+  let t = 0;
+  while (t < 4.5) {
+    // the scorer sprints to the corner, then drops into a knee slide
+    if (sc.anim !== 'slide' && t > 1.2 && Math.hypot(sc.pos.x - corner[0], sc.pos.z - corner[1]) < 2.6) setAnim(sc, 'slide');
+    sc.dTarget = corner; sc.dSpeed = sc.anim === 'slide' ? 2.2 : 5.2;
+    onCourt(T).forEach((p, i) => { if (p !== sc) { p.dTarget = [sc.pos.x - s * (0.8 + (i % 2) * 0.7), sc.pos.z + (i - 2) * 0.6]; p.dSpeed = 5; } });
+    t += DT; yield;
+  }
+  for (const p of [...onCourt(T), ...onCourt(other(T))]) { p.dTarget = null; setAnim(p, 'idle'); }
+}
+function* halftime() {
+  MATCH.state = 'halftime';
+  say(`中场休息：${scoreLine()}。`); showBanner(`中场 · ${scoreLine()}`);
+  const H = MATCH.home, A = MATCH.away;
+  for (const T of [H, A]) onCourt(T).forEach((p, i) => {
+    p.brain = null; const b = BENCH[T.side];
+    p.co = (function* () { yield* goDirect(p, lerp(b.x0, b.x1, i / 4), 9.4 - (i % 2) * 0.6, 1.8); p.face = Math.PI; setAnim(p, 'idle'); })();
+  });
+  STAFF.ref.brain = null; STAFF.ref.co = goDirect(STAFF.ref, -1.4, 10.5, 1.5);
+  yield* wait(10);
+  H.dir *= -1; A.dir *= -1; H.fouls = A.fouls = 0; MATCH.possTeam = null;
+  yield* waitUntil(() => [...onCourt(H), ...onCourt(A)].every(p => !p.co), 6);
+  for (const p of [...onCourt(H), ...onCourt(A)]) p.co = null;
+  STAFF.ref.co = null; STAFF.ref.brain = refBrain;
+  ballPlace(0, 0);
+}
+function* handshakeCo(p, sx, z, ex) {
+  p.hsReady = false; setAnim(p, 'idle');
+  if (p.anim === 'sit') setAnim(p, 'idle');
+  yield* goDirect(p, sx, z, 2.6);
+  p.face = Math.sign(ex - sx) > 0 ? Math.PI / 2 : -Math.PI / 2; p.hsReady = true;
+  yield* waitUntil(() => MATCH.hsGo, 40);
+  while (Math.abs(ex - p.pos.x) > 0.25) { steer(p, ex, z, 1.15, DT); setAnim(p, Math.abs(p.pos.x) < 9 ? 'shake' : 'idle'); yield; }
+  setAnim(p, 'idle');
+}
+function* fulltime() {
+  const H = MATCH.home, A = MATCH.away;
+  MATCH.state = 'fulltime'; MATCH.phase = 'dead';
+  const win = H.score > A.score ? H : A.score > H.score ? A : null;
+  say(`全场比赛结束！${scoreLine()}。${win ? `${win.club.short}拿下了这场比赛。` : '双方握手言和。'}`, 'goal');
+  showBanner(`终场 · ${scoreLine()}`);
+  const all = [...H.players, ...A.players];
+  for (const p of all) { p.brain = null; p.co = null; if (win && p.team === win && p.onCourt) setAnim(p, 'celebrate'); else if (p.anim !== 'sit') setAnim(p, 'idle'); }
+  if (win) MATCH.cheer = { side: win === H ? 0 : 1, until: MATCH.t + 5 };
+  STAFF.ref.brain = null;
+  yield* wait(4);
+  MATCH.state = 'handshake'; MATCH.hsGo = false;
+  say('赛后握手——打得好，打得好，打得好。');
+  H.players.forEach((p, i) => p.co = handshakeCo(p, -7 - i * 1.0, -0.45, 9 + i * 1.0));
+  A.players.forEach((p, i) => p.co = handshakeCo(p, 7 + i * 1.0, 0.45, -9 - i * 1.0));
+  yield* waitUntil(() => all.every(p => p.hsReady), 30);
+  MATCH.hsGo = true;
+  yield* waitUntil(() => all.every(p => !p.co), 45);
+  MATCH.state = 'walkin';
+  say('大家一起走回第12学校。');
+  const goers = [...all, STAFF.ref, STAFF.time, STAFF.coachH, STAFF.coachA];
+  goers.forEach((c, i) => { c.brain = null; c.co = (function* () { setAnim(c, 'idle'); yield* wait(i * 0.18); yield* walkTo(c, SX + 0.6, rr(-0.4, 0.4), 1.9); c.visible = false; })(); });
+  yield* waitUntil(() => goers.every(c => !c.co), 90);
+  for (const c of goers) { c.co = null; c.visible = false; }
+  MATCH.state = 'post';
+  say(`第12学校的比赛到此结束：${scoreLine()}。点击“重新开始”再来一场。`);
+}
+
+// ---------------- simulation step
+function clockRunning() { return MATCH.state === 'play'; }
+function simStep(dt) {
+  DT = dt; MATCH.t += dt;
+  if (MATCH.co) { const r = MATCH.co.next(); if (r.done) MATCH.co = null; }
+  if (clockRunning()) MATCH.clock = Math.min(CFG.HALF, MATCH.clock + dt * MATCH.rate);
+  if (MATCH.phase === 'live' && MATCH.home) liveTick();
+  for (const c of CHARS) c.steered = false;
+  for (const c of CHARS) { if (!c.visible && !c.co) continue; if (c.co) runCo(c); else if (c.brain) c.brain(c, dt); }
+  for (const c of CHARS) if (c.visible || c.co) integrate(c, dt);
+  // keep court players apart
+  const on = PLAYERS.filter(p => p.onCourt && p.visible && !p.co);
+  for (let i = 0; i < on.length; i++) for (let j = i + 1; j < on.length; j++) {
+    const a = on[i], b = on[j], dx = b.pos.x - a.pos.x, dz = b.pos.z - a.pos.z, d = Math.hypot(dx, dz);
+    if (d < 0.55 && d > 1e-4) { const k = (0.55 - d) / d * 0.5; a.pos.x -= dx * k; a.pos.z -= dz * k; b.pos.x += dx * k; b.pos.z += dz * k; }
+  }
+  for (const p of on) { p.pos.x = clamp(p.pos.x, -21.5, 21.5); p.pos.z = clamp(p.pos.z, -11.8, 11.0); }
+  // ball
+  if (ball.owner) {
+    const o = ball.owner, f = ball.hands ? 0.3 : 0.42;
+    const fx = Math.sin(o.heading), fz = Math.cos(o.heading);
+    const tx = o.pos.x + fx * f * o.scale, tz = o.pos.z + fz * f * o.scale;
+    const k = ball.hands ? 1 : Math.min(1, dt * 14);
+    const ox = ball.p.x, oz = ball.p.z;
+    ball.p.x += (tx - ball.p.x) * k; ball.p.z += (tz - ball.p.z) * k; ball.p.y = ball.hands ? 1.0 * o.scale : R;
+    ball.v.set((ball.p.x - ox) / dt, 0, (ball.p.z - oz) / dt);
+  } else stepBall(dt);
+}
+
+// ---------------- scoreboard (64x32 canvas texture, pixel font)
+let sbKey = '';
+function drawScoreboard(force) {
+  if (!MATCH.home) return;
+  const H = MATCH.home, A = MATCH.away;
+  const cl = Math.min(CFG.HALF, MATCH.clock), mm = String(Math.floor(cl / 60)).padStart(2, '0'), ss = String(Math.floor(cl % 60)).padStart(2, '0');
+  const key = [H.score, A.score, mm, ss, MATCH.half, H.fouls, A.fouls, H.club.id, A.club.id, MATCH.state].join('|');
+  if (key === sbKey && !force) return; sbKey = key;
+  const g = scoreboardTex.image.getContext('2d');
+  g.fillStyle = HEX('nightB'); g.fillRect(0, 0, 64, 32);
+  g.fillStyle = HEX('navy'); g.fillRect(0, 8, 64, 1); g.fillRect(0, 22, 64, 1);
+  const tc = k => (k === 'ink' ? HEX('lgrey') : HEX(k));
+  pixText(g, H.club.id, 1, 1, tc(H.club.shirt));
+  pixText(g, A.club.id, 64 - 1 - textW(A.club.id), 1, tc(A.club.shirt));
+  const sc = `${H.score}-${A.score}`; pixText(g, sc, Math.floor((64 - textW(sc)) / 2), 1, HEX('white'));
+  const clock = `${mm}:${ss}`; pixText(g, clock, Math.floor((64 - textW(clock, 2)) / 2), 10, HEX('warm'), 2);
+  const ph = MATCH.state === 'halftime' ? 'HT' : MATCH.state === 'fulltime' || MATCH.state === 'handshake' || MATCH.state === 'walkin' || MATCH.state === 'post' ? 'FT' : MATCH.state === 'play' || MATCH.state === 'goal' ? (MATCH.half === 1 ? 'H1' : 'H2') : '--';
+  pixText(g, ph, Math.floor((64 - textW(ph)) / 2), 25, HEX('white'));
+  for (const [T, x0, dirx] of [[H, 1, 1], [A, 62, -1]]) {
+    for (let i = 0; i < 5; i++) { g.fillStyle = i < T.fouls ? (T.fouls >= 5 ? HEX('crimson') : HEX('yellow')) : HEX('navy'); g.fillRect(x0 + dirx * i * 3 - (dirx < 0 ? 1 : 0), 26, 2, 2); }
+  }
+  scoreboardTex.needsUpdate = true;
+}
+
+/* =====================================================================
+   COMMENTARY  (feed with match minutes + banner)
+   ===================================================================== */
+const feedEl = document.getElementById('feed');
+const bannerEl = document.getElementById('banner');
+function minuteLabel() {
+  const s = MATCH.state;
+  if (s === 'halftime') return '中场';
+  if (s === 'fulltime' || s === 'handshake' || s === 'walkin' || s === 'post') return '终场';
+  if (s !== 'play' && s !== 'goal') return '赛前';
+  return (Math.min(20, Math.floor(MATCH.clock / 60) + 1) + (MATCH.half === 2 ? 20 : 0)) + "'";
+}
+function say(text, cls = '') {
+  const min = minuteLabel();
+  MATCH.events.push({ min, text, cls });
+  const li = document.createElement('li'); if (cls) li.className = cls;
+  const b = document.createElement('b'); b.textContent = min;
+  const sp = document.createElement('span'); sp.textContent = text;
+  li.append(b, sp); feedEl.prepend(li);
+  while (feedEl.children.length > 150) feedEl.lastChild.remove();
+}
+let bannerTimer = 0;
+function showBanner(text) {
+  bannerEl.textContent = text; bannerEl.classList.add('on');
+  clearTimeout(bannerTimer); bannerTimer = setTimeout(() => bannerEl.classList.remove('on'), 2600);
+}
+
+/* =====================================================================
+   UI  (controls, HUD, camera modes, tap-to-mark, main loop, test hooks)
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+const homeSel = $('homeSel'), awaySel = $('awaySel');
+CLUBS.forEach((c, i) => { for (const s of [homeSel, awaySel]) { const o = document.createElement('option'); o.value = i; o.textContent = c.name; s.append(o); } });
+function segInit(id, cur, fn) {
+  const btns = [...$(id).querySelectorAll('button')];
+  const set = v => btns.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === String(v))));
+  set(cur); btns.forEach(b => b.addEventListener('click', () => { set(b.dataset.v); fn(b.dataset.v); }));
+  return set;
+}
+function newMatch(hi, ai) {
+  hi = +hi; ai = +ai; if (hi === ai) ai = (hi + 1) % CLUBS.length;
+  homeSel.value = hi; awaySel.value = ai;
+  feedEl.innerHTML = '';
+  Object.assign(MATCH, { clock: 0, half: 1, pending: null, nudge: null, shot: null, pass: null, possTeam: null, cheer: null, wall: null,
+    events: [], goals: 0, shots: 0, saves: 0, fouls: 0, subs: 0, state: 'walkout', phase: 'dead', hsGo: false });
+  const hc = CLUBS[hi], ac = CLUBS[ai];
+  const used = new Set([hc.shirt, hc.shorts, hc.sock, ac.shirt, ac.shorts, ac.sock]);
+  const pool = ['purple', 'magenta', 'yellow', 'crimson', 'orange', 'white'].filter(c => !used.has(c));
+  MATCH.home = makeTeam(hc, 'home', 1, pool[0] || 'purple', 0);
+  MATCH.away = makeTeam(ac, 'away', -1, pool[1] || pool[0] || 'magenta', 9);
+  STAFF.coachH.colors = { shirt: hc.shirt, sleeve: hc.sleeve, trim: hc.trim, arm: hc.sleeve, shorts: 'navy', leg: 'navy', sock: 'navy', boot: 'white', skin: 'skinD', hair: 'grey' }; setCharColors(STAFF.coachH);
+  STAFF.coachA.colors = { shirt: ac.shirt, sleeve: ac.sleeve, trim: ac.trim, arm: ac.sleeve, shorts: 'slate', leg: 'slate', sock: 'slate', boot: 'ink', skin: 'skin', hair: 'ink' }; setCharColors(STAFF.coachA);
+  colorCrowd(hc, ac);
+  marker.visible = false;
+  MATCH.rate = 2400 / (STATE.len * 60);
+  $('hChip').style.background = HEX(hc.shirt); $('hChip').style.setProperty('--c2', HEX(hc.shorts));
+  $('aChip').style.background = HEX(ac.shirt); $('aChip').style.setProperty('--c2', HEX(ac.shorts));
+  MATCH.co = director();
+  drawScoreboard(true);
+}
+
+// --- controls
+segInit('lenSeg', STATE.len, v => { STATE.len = +v; MATCH.rate = 2400 / (STATE.len * 60); });
+segInit('surfSeg', STATE.surface, v => {
+  applySurface(v);
+  if (MATCH.state !== 'boot') say(`场地更换：现在是${SURF[v].name}场地${v === 'asphalt' ? '，球速快、弹跳高' : v === 'turf' ? '，球速慢，弹跳很快就没了' : v === 'parquet' ? '，地面很滑，小心打滑' : '，弹跳适中、很稳定'}。`);
+});
+segInit('todSeg', STATE.tod, v => applyTOD(v));
+segInit('camSeg', STATE.cam, v => { STATE.cam = v; });
+segInit('speedSeg', STATE.speed, v => { STATE.speed = +v; });
+homeSel.addEventListener('change', () => { if (homeSel.value === awaySel.value) awaySel.value = (+homeSel.value + 1) % CLUBS.length; newMatch(homeSel.value, awaySel.value); });
+awaySel.addEventListener('change', () => { if (homeSel.value === awaySel.value) homeSel.value = (+awaySel.value + 1) % CLUBS.length; newMatch(homeSel.value, awaySel.value); });
+$('randomBtn').addEventListener('click', () => { const a = Math.floor(rnd() * 4); let b = Math.floor(rnd() * 3); if (b >= a) b++; newMatch(a, b); });
+$('restartBtn').addEventListener('click', () => newMatch(homeSel.value, awaySel.value));
+$('pauseBtn').addEventListener('click', e => { STATE.paused = !STATE.paused; e.currentTarget.textContent = STATE.paused ? '继续' : '暂停'; e.currentTarget.setAttribute('aria-pressed', String(STATE.paused)); });
+$('feedBtn').addEventListener('click', e => { STATE.feed = !STATE.feed; $('feedWrap').classList.toggle('off', !STATE.feed); e.currentTarget.textContent = STATE.feed ? '解说：开' : '解说：关'; e.currentTarget.setAttribute('aria-pressed', String(STATE.feed)); });
+function nudge(type, label) {
+  MATCH.nudge = { type }; marker.visible = false;
+  showBanner(ball.owner && MATCH.phase === 'live' ? `看台：“${label}”` : `看台：“${label}”——留给下一位拿球的球员`);
+}
+$('actShoot').addEventListener('click', () => nudge('shoot', '射门！'));
+$('actSquare').addEventListener('click', () => nudge('square', '横传！'));
+$('actLong').addEventListener('click', () => nudge('long', '长传！'));
+function rotate(dir) { CAM.yawFrom = CAM.yaw; CAM.yawTarget += dir * Math.PI / 2; CAM.tweenT = 0; }
+$('rotL').addEventListener('click', () => rotate(-1));
+$('rotR').addEventListener('click', () => rotate(1));
+$('zoomIn').addEventListener('click', () => { CAM.userZoom = clamp(CAM.userZoom * 1.25, 0.5, 4); });
+$('zoomOut').addEventListener('click', () => { CAM.userZoom = clamp(CAM.userZoom / 1.25, 0.5, 4); });
+
+// --- tap / click on the court to place a pass marker (raycast onto the pitch plane)
+const raycaster = new THREE.Raycaster(), groundPlane = new THREE.Plane(new V3(0, 1, 0), 0), _ndc = new THREE.Vector2();
+let downAt = null;
+canvas.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; });
+canvas.addEventListener('pointerup', e => {
+  if (!downAt) return; const moved = Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]); downAt = null;
+  if (moved < 12) placeMarkerAt(e.clientX, e.clientY);
+});
+function placeMarkerAt(cx, cy) {
+  const r = canvas.getBoundingClientRect();
+  _ndc.set((cx - r.left) / r.width * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
+  camera.updateMatrixWorld(); raycaster.setFromCamera(_ndc, camera);
+  const hit = new V3(); if (!raycaster.ray.intersectPlane(groundPlane, hit)) return null;
+  if (Math.abs(hit.x) > 20 || Math.abs(hit.z) > 10) { showBanner('请点击场地边线以内来标记传球位置'); return null; }
+  marker.position.set(hit.x, 0, hit.z); marker.visible = true;
+  MATCH.nudge = { type: 'marker', p: { x: hit.x, z: hit.z } };
+  showBanner('已标记！下一脚传球会传到这里');
+  return [hit.x, hit.z];
+}
+
+// --- camera modes + rotation tween + pixel-snapped placement
+const UP = new V3(0, 1, 0), _fw = new V3(), _rt = new V3(), _up = new V3(), _tg = new V3();
+function placeCamera() {
+  const e = CFG.elev, y = CAM.yaw;
+  _fw.set(-Math.cos(y) * Math.cos(e), -Math.sin(e), -Math.sin(y) * Math.cos(e));
+  _rt.crossVectors(_fw, UP).normalize(); _up.crossVectors(_rt, _fw);
+  const mpp = (camera.top - camera.bottom) / RH;
+  const t = CAM.target;
+  const r = Math.round(t.dot(_rt) / mpp) * mpp, u = Math.round(t.dot(_up) / mpp) * mpp, f = t.dot(_fw);
+  _tg.copy(_rt).multiplyScalar(r).addScaledVector(_up, u).addScaledVector(_fw, f);
+  camera.position.copy(_tg).addScaledVector(_fw, -CAM.dist);
+  camera.up.copy(UP); camera.lookAt(_tg);
+};
+function updateCamera(dt) {
+  if (CAM.tweenT < 1) {
+    CAM.tweenT = Math.min(1, CAM.tweenT + dt / 0.6);
+    const t = CAM.tweenT, k = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    CAM.yaw = lerp(CAM.yawFrom, CAM.yawTarget, k);
+    if (CAM.tweenT >= 1) { CAM.yaw = CAM.yawTarget; updateCutaway(); }
+  }
+  const pre = MATCH.state === 'walkout' || MATCH.state === 'walkin' || MATCH.state === 'post';
+  let focus = ball.owner ? ball.owner.pos : ball.p;
+  if (pre) { const vis = PLAYERS.filter(p => p.visible); focus = vis.length ? vis.reduce((a, p) => a.add(p.pos), new V3()).multiplyScalar(1 / vis.length) : new V3(SX + 4, 0, 0); }
+  let tx = -2, tz = 0, ty = 0, zm = 1;
+  if (STATE.cam === 'debug') { tx = CAM.dbg[0]; ty = CAM.dbg[1]; tz = CAM.dbg[2]; zm = CAM.dbg[3]; }
+  else if (STATE.cam === 'tv') { tx = clamp(focus.x * 0.8, -16, 14); tz = clamp(focus.z * 0.35, -4, 4); zm = 1.7; }
+  else if (STATE.cam === 'close') { tx = focus.x; tz = focus.z; ty = 0.6; zm = 3.2; }
+  const k = 1 - Math.exp(-dt * 3);
+  CAM.target.x += (tx - CAM.target.x) * k; CAM.target.y += (ty - CAM.target.y) * k; CAM.target.z += (tz - CAM.target.z) * k;
+  CAM.zoom += (zm - CAM.zoom) * k;
+  updateCameraFrustum(); placeCamera();
+}
+
+// --- HUD
+const PHASE_LABEL = { boot: '', walkout: '球员入场', warmup: '热身', lineup: '列队', kickoff: '开球', goal: '进球！', halftime: '中场休息', fulltime: '全场结束', handshake: '赛后握手', walkin: '退场', post: '终场' };
+const hudCache = {};
+function setText(id, v) { if (hudCache[id] !== v) { hudCache[id] = v; $(id).textContent = v; } }
+function updateHUD() {
+  const H = MATCH.home, A = MATCH.away; if (!H) return;
+  setText('hName', H.club.short); setText('aName', A.club.short);
+  setText('hScore', String(H.score)); setText('aScore', String(A.score));
+  const cl = Math.min(CFG.HALF, MATCH.clock) + (MATCH.half === 2 ? CFG.HALF : 0);
+  setText('clock', `${String(Math.floor(cl / 60)).padStart(2, '0')}:${String(Math.floor(cl % 60)).padStart(2, '0')}`);
+  setText('phase', MATCH.state === 'play' ? (MATCH.half === 1 ? '上半场' : '下半场') : PHASE_LABEL[MATCH.state] || '');
+}
+
+// --- per-frame visuals
+const flashBulb = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), new THREE.MeshBasicMaterial({ color: 0xffffff })); flashBulb.visible = false; scene.add(flashBulb);
+const lastBall = new V3();
+const CLOCK_BASE = { day: 14 * 60 + 5, dusk: 18 * 60 + 40, night: 20 * 60 + 50 };
+function visuals(dt) {
+  const t = performance.now() / 1000;
+  updateCharMeshes();
+  // ball roll + blob
+  ballMesh.position.set(ball.p.x, ball.p.y - R + 0.2, ball.p.z);
+  const mx = ball.p.x - lastBall.x, mz = ball.p.z - lastBall.z, md = Math.hypot(mx, mz);
+  if (md > 1e-4 && md < 5) ballMesh.rotateOnWorldAxis(_s.set(mz / md, 0, -mx / md), md / 0.2);
+  lastBall.copy(ball.p);
+  blob.position.set(ball.p.x, 0.035, ball.p.z); blob.scale.setScalar(1 / (1 + (ball.p.y - R) * 0.5));
+  updateSpectators(MATCH.t);
+  // flag
+  const fp = flagGeo.attributes.position;
+  for (let i = 0; i < fp.count; i++) { const x = flagBase[i * 3], y = flagBase[i * 3 + 1]; fp.setZ(i, (Math.sin(x * 2.4 - t * 6) * 0.17 + Math.sin(y * 3 + t * 3) * 0.04) * (x / 2.4)); }
+  fp.needsUpdate = true; flagGeo.computeVertexNormals();
+  // nets
+  for (const g of GOALS) if (g.shake > 0) { g.shake = Math.max(0, g.shake - dt * 1.2); g.net.position.x = g.s * (0.18 * g.shake + Math.sin(g.shake * 40) * 0.05 * g.shake); }
+  // wall clock (moves with sim time)
+  const cm = CLOCK_BASE[STATE.tod] + MATCH.t / 60;
+  clockHands.m.rotation.x = -((cm % 60) / 60) * Math.PI * 2;
+  clockHands.h.rotation.x = -(((cm / 60) % 12) / 12) * Math.PI * 2;
+  // photographer flash
+  if (MATCH.flashT > 0) { MATCH.flashT -= dt; flashBulb.visible = true; if (STAFF.photo.flashPos) flashBulb.position.copy(STAFF.photo.flashPos); else flashBulb.position.set(STAFF.photo.pos.x, 1.75, STAFF.photo.pos.z); flash.position.copy(flashBulb.position); flash.intensity = 5; }
+  else { flashBulb.visible = false; flash.intensity = 0; }
+  if (marker.visible) marker.userData.cone.position.y = 1.6 + Math.sin(t * 5) * 0.15;
+  drawScoreboard(); updateHUD();
+}
+
+// --- main loop
+let last = performance.now(), simAcc = 0, fps = 0, fpsN = 0, fpsT = 0;
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.1, Math.max(0, (now - last) / 1000)); last = now;
+  fpsN++; fpsT += dt; if (fpsT >= 1) { fps = Math.round(fpsN / fpsT); fpsN = 0; fpsT = 0; }
+  if (!STATE.paused) {
+    simAcc += dt * STATE.speed * DEBUG_SPEED;
+    const maxSteps = DEBUG_SPEED > 1 ? 600 : 14;
+    let n = 0; while (simAcc >= CFG.FIXED && n < maxSteps) { simStep(CFG.FIXED); simAcc -= CFG.FIXED; n++; }
+    if (n >= maxSteps) simAcc = 0;
+  }
+  updateCamera(dt);
+  visuals(dt);
+  renderFrame();
+  if (!frame.done && ++frame.n > 2) { frame.done = true; $('loading').classList.add('done'); }
+}
+frame.n = 0;
+
+// --- test hooks
+function testSolvers() {
+  const save = { p: ball.p.clone(), v: ball.v.clone(), air: ball.air, sliding: ball.sliding, slideV0: ball.slideV0, owner: ball.owner, hands: ball.hands }, s0 = surf, out = {};
+  for (const k of Object.keys(SURF)) {
+    surf = SURF[k];
+    ballPlace(-5, 0); const v0 = groundPassSpeed(10, 3); ball.v.set(v0, 0, 0); ball.sliding = true; ball.slideV0 = v0;
+    let n = 0; while (ball.p.x < 5 && n++ < 6000 && ball.v.x > 0.01) stepBall(1 / 240);
+    const ground = { v0: +v0.toFixed(2), arrive: +ball.v.x.toFixed(2), reached: ball.p.x >= 5 };
+    ballPlace(-4, 0); const tgt = new V3(4, 0.4, 3); const lv = lobVelocity(ball.p, tgt, 1.2); ball.v.copy(lv); ball.air = true;
+    for (let i = 0; i < 288; i++) stepBall(1 / 240);
+    const lob = { err: +ball.p.distanceTo(tgt).toFixed(3) };
+    ballPlace(0, 0); ball.p.y = 2; ball.air = true; ball.v.set(0, 0, 0); let peak = 0, bounced = false;
+    for (let i = 0; i < 800; i++) { const vy = ball.v.y; stepBall(1 / 240); if (vy < 0 && ball.v.y > 0) bounced = true; if (bounced) peak = Math.max(peak, ball.p.y); if (bounced && ball.v.y < 0) break; }
+    out[k] = { ground, lob, bounceFrom2m: +peak.toFixed(2) };
+  }
+  surf = s0; Object.assign(ball, { air: save.air, sliding: save.sliding, slideV0: save.slideV0, owner: save.owner, hands: save.hands }); ball.p.copy(save.p); ball.v.copy(save.v);
+  return out;
+}
+window.__game = {
+  get state() { return MATCH.state; }, get phase() { return MATCH.phase; },
+  get score() { return MATCH.home ? [MATCH.home.score, MATCH.away.score] : [0, 0]; },
+  get clock() { return Math.round(MATCH.clock); }, get half() { return MATCH.half; }, get simTime() { return Math.round(MATCH.t); },
+  get events() { return MATCH.events.length; }, get shots() { return MATCH.shots; }, get saves() { return MATCH.saves; },
+  get fouls() { return MATCH.fouls; }, get subs() { return MATCH.subs; }, get goals() { return MATCH.goals; },
+  get teams() { return MATCH.home ? [MATCH.home.club.id, MATCH.away.club.id] : []; },
+  get surface() { return STATE.surface; }, get tod() { return STATE.tod; }, get cam() { return STATE.cam; },
+  get yaw() { return Math.round(CAM.yaw * 180 / Math.PI); }, get zoom() { return +CAM.userZoom.toFixed(2); },
+  get paused() { return STATE.paused; }, get speed() { return STATE.speed; }, get fps() { return fps; }, get rt() { return [RW, RH]; },
+  get nudge() { return MATCH.nudge ? MATCH.nudge.type : null; }, get marker() { return marker.visible; },
+  get feedOn() { return STATE.feed; }, get len() { return STATE.len; },
+  get lastLines() { return MATCH.events.slice(-8).map(e => e.min + ' ' + e.text); },
+  get owner() { return ball.owner ? ball.owner.name : null; },
+  chars() { return CHARS.filter(c => c.visible).map(c => [c.kind, c.name || '', +c.pos.x.toFixed(1), +c.pos.z.toFixed(1), c.anim]); },
+  // model sheet for visual checks: pauses the sim and poses the players in a row
+  lab(list, z = 0, yawOff = 0) {
+    STATE.paused = true;
+    const anims = list || ['idle', 'walk', 'run', 'kick', 'gkready', 'dive', 'celebrate', 'slide', 'shake', 'sit', 'wave', 'throw', 'hold', 'stretch', 'clap', 'crouch', 'photo', 'serve'];
+    const pool = [...MATCH.home.players, ...MATCH.away.players];
+    anims.forEach((a, i) => {
+      const c = pool[i % pool.length]; c.visible = true; c.co = null; c.brain = null;
+      c.pos.set(-8 + i * 1.1, 0, z); c.heading = Math.PI / 4 + yawOff; c.vel.set(0, 0, 0); setAnim(c, a);
+      if (a === 'walk' || a === 'run') { const v = a === 'walk' ? 1.6 : 6; c.vel.set(Math.sin(c.heading) * v, 0, Math.cos(c.heading) * v); c.phase = 0.9; c.anim = 'idle'; }
+      if (a === 'kick') c.at = 0.1; if (a === 'throw') c.at = 0.05; if (a === 'dive') { c.at = 0.45; c.diveSide = 1; } if (a === 'celebrate') c.at = 0.25;
+      if (a === 'sit') { c.pos.y = 0; }
+    });
+    for (let i = anims.length; i < pool.length; i++) pool[i].visible = false;
+    ball.p.set(0, -5, 0);
+  },
+  testSolvers, placeMarkerAt, setDebugSpeed(n) { DEBUG_SPEED = Math.max(1, Math.min(200, n)); }, debugView(x, y, z, zm) { CAM.dbg = [x, y, z, zm]; STATE.cam = 'debug'; }, courtToScreen(x, z) { const v = new V3(x, 0, z).project(camera); const r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; },
+};
+
+// --- boot
+applySurface(STATE.surface); applyTOD(STATE.tod);
+buildNav(); initChars();
+resize(); updateCutaway();
+new ResizeObserver(() => resize()).observe(stage);
+newMatch(+(Q.get('home') ?? 0), +(Q.get('away') ?? 1));
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
