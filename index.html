@@ -360,7 +360,7 @@ const QUAL = {
   },
   ui() {
     const el = document.getElementById('qNow'); if (!el) return;
-    const res = typeof RW !== 'undefined' ? ` · ${RW}×${RH}` : '';
+    const m = typeof PIX !== 'undefined' ? 2 * PIX.M : 0, res = typeof RW !== 'undefined' ? ` · ${RW - m}×${RH - m}` : '';   // visible frame (the render has a 1 px margin)
     el.textContent = (this.mode === 'auto' ? `自动：当前${this.T.name}` : this.T.name) + res;
     if (typeof QSEG_SET === 'function') QSEG_SET(this.mode);
   },
@@ -487,7 +487,7 @@ renderer.shadowMap.type = THREE.BasicShadowMap;
 
 const scene = new THREE.Scene();
 const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 260);
-const CAM = { yaw: Math.PI / 4, yawTarget: Math.PI / 4, yawFrom: Math.PI / 4, tweenT: 1, zoom: 1, userZoom: 1, target: new V3(-2, 0, 0), baseW: 62, dist: 120, quadrant: 0 };
+const CAM = { sub: [0, 0], yaw: Math.PI / 4, yawTarget: Math.PI / 4, yawFrom: Math.PI / 4, tweenT: 1, zoom: 1, userZoom: 1, target: new V3(-2, 0, 0), baseW: 62, dist: 120, quadrant: 0 };
 
 let RT = null, RW = CFG.rtW, RH = 200;
 const postMat = new THREE.ShaderMaterial({
@@ -495,6 +495,7 @@ const postMat = new THREE.ShaderMaterial({
     tColor: { value: null }, tDepth: { value: null }, res: { value: new THREE.Vector2(1, 1) },
     cNear: { value: 1 }, cFar: { value: 260 }, thr: { value: 1 }, thr2: { value: 2 }, ow: { value: QUAL.T.ow }, skyAmp: { value: 0.12 },
     pal: { value: PAL_HEX.map(h => new THREE.Color(h)) }, ink: { value: new THREE.Color(PAL_HEX[0]) },
+    tNormal: { value: null }, nStr: { value: 0 }, palUp: { value: new Array(32).fill(0) },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }`,
   fragmentShader: `
@@ -503,11 +504,24 @@ const postMat = new THREE.ShaderMaterial({
     uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 res;
     uniform float cNear; uniform float cFar; uniform float thr; uniform float thr2; uniform float ow; uniform float skyAmp;
     uniform vec3 pal[32]; uniform vec3 ink;
+    uniform sampler2D tNormal; uniform float nStr; uniform float palUp[32];
     // orthographic depth buffer is linear in view z: linearise to metres
     float lin(vec2 uv){ float d = texture2D(tDepth, uv).x; return cNear + d * (cFar - cNear); }
     float bayer(vec2 p){ int x=int(mod(p.x,4.)); int y=int(mod(p.y,4.)); int i=x+y*4;
       float m[16]; m[0]=0.;m[1]=8.;m[2]=2.;m[3]=10.;m[4]=12.;m[5]=4.;m[6]=14.;m[7]=6.;m[8]=3.;m[9]=11.;m[10]=1.;m[11]=9.;m[12]=15.;m[13]=7.;m[14]=13.;m[15]=5.;
       float v=0.; for(int k=0;k<16;k++){ if(k==i) v=m[k]; } return v/16.-.47; }
+    // ---- creases from view-space normals: the rule of three.js RenderPixelatedPass (MIT, Kody King,
+    // examples/jsm/postprocessing/RenderPixelatedPass.js, r160). Of the two pixels on either side of a fold only
+    // one lights up: the one whose normal leans further towards the bias direction (1,1,1), and only when the
+    // neighbour is the same surface (no depth step: silhouettes keep the ink outline instead).
+    vec3 nrm(vec2 uv){ return texture2D(tNormal, uv).rgb * 2.0 - 1.0; }
+    float nEdge(vec2 o, float c, vec3 n){
+      float dd = lin(vUv + o) - c;
+      vec3 nn = nrm(vUv + o);
+      float ni = clamp(smoothstep(-.01, .01, dot(n - nn, vec3(1.))), 0., 1.);
+      float di = abs(dd) < thr ? 1. : 0.;
+      return (1.0 - dot(n, nn)) * di * ni;
+    }
     void main(){
       vec2 px = 1.0 / res;
       float c = lin(vUv);
@@ -526,18 +540,56 @@ const postMat = new THREE.ShaderMaterial({
       vec3 col = texture2D(tColor, vUv).rgb;
       // the sky (empty depth) gets a full-strength ordered dither between neighbouring palette colours: no bands
       bool skyPx = texture2D(tDepth, vUv).x > 0.99999;
+
+      // a fold pixel takes the next lighter colour of its own palette ramp (grass -> light grass, slate -> grey ...)
+      float crease = 0.;
+      if (nStr > 0. && !skyPx && edge <= thr && edge2 <= thr2) {
+        vec3 n = nrm(vUv);
+        float ne = nEdge(vec2(px.x, 0.), c, n) + nEdge(vec2(-px.x, 0.), c, n) + nEdge(vec2(0., px.y), c, n) + nEdge(vec2(0., -px.y), c, n);
+        crease = step(0.1, ne);
+      }
       col += bayer(gl_FragCoord.xy) * (skyPx ? skyAmp : 0.016);
-      vec3 best = pal[0]; float bd = 1e9;
+      vec3 best = pal[0]; float bd = 1e9; int bi = 0;
       for (int i = 0; i < 32; i++) {
         vec3 d = col - pal[i];
         float dd = dot(d * d, vec3(2.0, 4.0, 3.0));
-        if (dd < bd) { bd = dd; best = pal[i]; }
+        if (dd < bd) { bd = dd; best = pal[i]; bi = i; }
       }
+      if (crease > 0.5) { int u = bi; for (int k = 0; k < 32; k++) if (k == bi) u = int(palUp[k] + 0.5); for (int k = 0; k < 32; k++) if (k == u) best = pal[k]; }
       if (edge > thr || edge2 > thr2) best = ink;
       gl_FragColor = vec4(best, 1.0);
     }`,
   depthTest: false, depthWrite: false,
 });
+/* ---- 像素化与描边 (2026-11-03): the outline / palette pass above now also reads a view-space normal target, drawn
+   with MeshNormalMaterial like three.js RenderPixelatedPass does (transparent fence / nets / blob shadow left out).
+   Camera: the camera is snapped to the art-pixel grid (placeCamera), so a pan moves every pixel by whole pixels and
+   nothing shimmers; the part of the move the snap dropped (CAM.sub, in art px) is put back by shifting the finished,
+   upscaled canvas by that many screen pixels (t3ssel8r's sub-pixel camera, reproduced from the idea). The frame is
+   drawn one art pixel larger on every side (PIX.M) so the shift never uncovers the edge. */
+const PIX = { M: Q.get('subpx') === '0' ? 0 : 1, sub: Q.get('subpx') !== '0', snap: Q.get('snap') !== '0', nStr: Q.get('crease') != null ? +Q.get('crease') : 0.3, sx: 0, sy: 0, hide: [], stats: null, NRT: null };
+// next lighter colour on the same ramp, by palette index (P): the crease highlight never leaves the palette or its hue
+// (ink / night-blue stay as they are: faces in deep shadow or at night would get a blue wire-frame otherwise)
+const PAL_UP = { navy: 'slate', slate: 'grey', grey: 'lgrey', lgrey: 'white', skyL: 'white', sky: 'skyL', blueD: 'blue', blue: 'blueL', blueL: 'sky',
+  grassN: 'grassD', grassD: 'grass', grass: 'grassL', dirtD: 'dirt', dirt: 'tan', tan: 'skin', brick: 'skinD', orange: 'yellow', crimsonD: 'crimson',
+  yellowD: 'yellow', yellow: 'warm', magentaD: 'magenta', skinD: 'skin', skin: 'warm', dusk: 'skin', warm: 'white' };
+const NORMAL_MAT = new THREE.MeshNormalMaterial({ side: THREE.DoubleSide });
+function makeNRT() {
+  if (PIX.NRT) PIX.NRT.dispose();
+  PIX.NRT = new THREE.WebGLRenderTarget(RW, RH, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: true });
+  postMat.uniforms.tNormal.value = PIX.NRT.texture;
+}
+// meshes the normal pass skips: see-through ones (they do not write depth either), and the people and the ball:
+// their boxes are only 8-20 art px tall, and fold highlights on every limb made kits flicker between two colours
+// and blurred the silhouettes, so creases are kept for the scenery (buildings, stands, trees, rocks, props)
+function pixInit() {
+  PIX.hide.length = 0;
+  scene.traverse(o => { if (o.isMesh && o.material && !Array.isArray(o.material) && o.material.transparent) PIX.hide.push(o); });
+  if (Q.get('creasechars') !== '1') PIX.hide.push(charMesh, numMesh, crowdMesh, ballMesh);
+  postMat.uniforms.nStr.value = PIX.nStr;
+  for (const k in P) postMat.uniforms.palUp.value[P[k]] = P[PAL_UP[k] || k];
+}
+function pixStat(k) { if (PIX.stats) { PIX.stats[k] = { calls: renderer.info.render.calls, tris: renderer.info.render.triangles }; } }
 const postScene = new THREE.Scene();
 const postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), postMat));
@@ -550,13 +602,14 @@ function makeRT() {
   postMat.uniforms.tColor.value = RT.texture;
   postMat.uniforms.tDepth.value = dt;
   postMat.uniforms.res.value.set(RW, RH);
+  makeNRT();
 }
 let PXS = 1;   // device pixels per art pixel (integer)
 function resize(force) {
   const w = stage.clientWidth || innerWidth || 640, h = stage.clientHeight || innerHeight || 400, dpr = window.devicePixelRatio || 1;
   const wd = Math.round(w * dpr), hd = Math.round(h * dpr);
   const s = QUAL.scale(wd, dpr);
-  const nw = Math.ceil(wd / s), nh = Math.max(60, Math.ceil(hd / s));
+  const nw = Math.ceil(wd / s) + 2 * PIX.M, nh = Math.max(60, Math.ceil(hd / s)) + 2 * PIX.M;
   PXS = s;
   canvas.style.width = (nw * s / dpr) + 'px'; canvas.style.height = (nh * s / dpr) + 'px';
   canvas.style.left = (Math.floor((wd - nw * s) / 2) / dpr) + 'px'; canvas.style.top = (Math.floor((hd - nh * s) / 2) / dpr) + 'px';
@@ -569,9 +622,9 @@ function resize(force) {
   QUAL.ui();
 }
 function updateCameraFrustum() {
-  const aspect = RW / RH;
-  const z = CAM.zoom * CAM.userZoom, halfW = Math.max(CAM.baseW / 2, CAM.baseW / 2 / 1.6 * aspect) * (aspect < 1 ? Math.max(0.72, Math.pow(aspect, 0.4)) : 1) / z;
-  const halfH = halfW / aspect;
+  const IW = RW - 2 * PIX.M, IH = RH - 2 * PIX.M, aspect = IW / IH;   // framing is decided on the visible frame
+  const z = CAM.zoom * CAM.userZoom, hw = Math.max(CAM.baseW / 2, CAM.baseW / 2 / 1.6 * aspect) * (aspect < 1 ? Math.max(0.72, Math.pow(aspect, 0.4)) : 1) / z;
+  const ex = hw / aspect / IH * 2 * PIX.M, halfW = hw + ex, halfH = hw / aspect + ex;   // + the margin, same metres per pixel
   camera.left = -halfW; camera.right = halfW; camera.top = halfH; camera.bottom = -halfH;
   camera.updateProjectionMatrix();
   // outline threshold scales with metres-per-pixel (ground depth slope ~ 1/tan(elev) per pixel)
@@ -581,8 +634,20 @@ function updateCameraFrustum() {
 }
 function renderFrame() {
   updateSceneText();
+  shadowFrame(); pixStat('shadow');
   renderer.setRenderTarget(RT);
-  renderer.render(scene, camera);
+  renderer.render(scene, camera); pixStat('main');
+  if (PIX.nStr > 0) {
+    const bg = scene.background, vis = PIX.hide.map(o => o.visible);
+    scene.background = null; scene.overrideMaterial = NORMAL_MAT; for (const o of PIX.hide) o.visible = false;
+    renderer.setRenderTarget(PIX.NRT); renderer.render(scene, camera);
+    scene.overrideMaterial = null; scene.background = bg; PIX.hide.forEach((o, i) => { o.visible = vis[i]; });
+    pixStat('normal');
+  }
+  // sub-pixel camera: shift the upscaled canvas by the snap error, in whole device pixels
+  const dpr = window.devicePixelRatio || 1;
+  const sx = PIX.sub ? Math.round(-CAM.sub[0] * PXS) : 0, sy = PIX.sub ? Math.round(CAM.sub[1] * PXS) : 0;
+  if (sx !== PIX.sx || sy !== PIX.sy) { PIX.sx = sx; PIX.sy = sy; canvas.style.transform = sx || sy ? `translate(${sx / dpr}px, ${sy / dpr}px)` : ''; }
   renderer.setRenderTarget(null);
   postMat.uniforms.cNear.value = camera.near; postMat.uniforms.cFar.value = camera.far;
   renderer.render(postScene, postCam);
@@ -728,7 +793,7 @@ function _stProj(m, x, y) { _stv.set(x, y, 0).applyMatrix4(m.matrixWorld).projec
 // draw(g, w, h) at scale 1 }. frame(g, W, H, s): optional full-texture decoration under the content.
 function sceneText(mesh, wM, hM, mats, layouts, opt = {}) {
   const o = { mesh, wM, hM, mats, layouts, bg: opt.bg, frame: opt.frame, scale: opt.scale !== false, W: 0, H: 0, lay: -1, s: 0, dirty: true, tex: null, avail: [0, 0] };
-  SCENE_TEXT.push(o); return o;
+  mesh.userData.dyn = true; SCENE_TEXT.push(o); return o;
 }
 // pin a sign texture to the screen's pixel grid: 2x2 texels per screen pixel, pixel centres on texel corners across,
 // rows counted from the sign's top edge
@@ -981,6 +1046,7 @@ const SX = -29;
 const school = new THREE.Group(); scene.add(school); SIDES.xm.objs.push(school);
 const windowMat = new THREE.MeshLambertMaterial({ color: HEX('navy'), emissive: 0x000000 });
 const lampMat = new THREE.MeshLambertMaterial({ color: HEX('lgrey'), emissive: 0x000000 });
+windowMat.userData.live = lampMat.userData.live = true;   // time of day changes them: merged per material, never into the shared colour material
 let SB_TEXT, clockHands = {}, flagGeo, flagBase;
 {
   const brickMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
@@ -1030,7 +1096,7 @@ let SB_TEXT, clockHands = {}, flagGeo, flagBase;
   sb.rotation.y = Math.PI / 2; sb.position.set(SX + 0.32, 5.2, -8.5); school.add(sb);
   SB_TEXT = sceneText(sb, 5.0, 2.5, [[sbMat, ['map']]], SB_LAYOUTS, { bg: 'nightB' });
   // wall clock
-  const ck = new THREE.Group(); ck.position.set(SX + 0.08, 5.2, 8.2); school.add(ck);
+  const ck = new THREE.Group(); ck.userData.dyn = true; ck.position.set(SX + 0.08, 5.2, 8.2); school.add(ck);
   const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.95, 0.1, 20), mat('ink')); rim.rotation.z = Math.PI / 2; ck.add(rim);
   const face = new THREE.Mesh(new THREE.CylinderGeometry(0.82, 0.82, 0.12, 20), mat('white')); face.rotation.z = Math.PI / 2; face.position.x = 0.03; ck.add(face);
   for (const [name, len, w] of [['h', 0.45, 0.09], ['m', 0.7, 0.06]]) {
@@ -1048,7 +1114,7 @@ let SB_TEXT, clockHands = {}, flagGeo, flagBase;
   flagGeo = new THREE.PlaneGeometry(2.4, 1.5, 12, 4); flagGeo.translate(1.2, 0, 0);
   flagBase = flagGeo.attributes.position.array.slice();
   const flag = new THREE.Mesh(flagGeo, new THREE.MeshLambertMaterial({ map: flagTex, side: THREE.DoubleSide }));
-  flag.position.set(-26.6, 8.1, 11.8); flag.rotation.y = -0.6; scene.add(shade(flag));
+  flag.position.set(-26.6, 8.1, 11.8); flag.rotation.y = -0.6; flag.userData.dyn = flag.userData.shDbl = true; scene.add(shade(flag));
   // forecourt plaza
   bx(6.6, 0.03, 21, 'tan', -25.7, 0, 0, scene, false);
 }
@@ -1097,7 +1163,7 @@ const GOALS = [];
     const g = new THREE.Group(); g.position.set(s * 20, 0, 0); scene.add(g);
     for (const z of [-1.5, 1.5]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.16, 2, 0.16), postMatV); p.position.set(s * 0.08, 1, z); g.add(shade(p)); }
     const bar = new THREE.Mesh(new THREE.BoxGeometry(3.16, 0.16, 0.16), barMat); bar.rotation.y = Math.PI / 2; bar.position.set(s * 0.08, 2, 0); g.add(shade(bar));
-    const net = new THREE.Group(); g.add(net);
+    const net = new THREE.Group(); net.userData.dyn = true; g.add(net);
     const back = new THREE.Mesh(new THREE.PlaneGeometry(3, 1.2), netMat); back.rotation.y = Math.PI / 2; back.position.set(s * 1.0, 0.6, 0); net.add(back);
     const topN = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 3), netMat); topN.rotation.x = -Math.PI / 2; topN.position.set(s * 0.5, 1.6, 0); topN.rotation.y = s * 0.0; net.add(topN);
     const slope = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 3), netMat); slope.rotation.set(-Math.PI / 2, s * -0.6, 0); slope.position.set(s * 0.6, 1.5, 0); net.add(slope);
@@ -1258,7 +1324,7 @@ function applyTOD(k) {
   gr.addColorStop(0, t.sky[0]); gr.addColorStop(1, t.sky[1]); g.fillStyle = gr; g.fillRect(0, 0, 2, 128);
   skyTex.needsUpdate = true;
   hemi.color.set(t.hs); hemi.groundColor.set(t.hg); hemi.intensity = t.hi;
-  sun.color.set(t.sc); sun.intensity = t.si; sun.position.set(...t.sp);
+  sun.color.set(t.sc); sun.intensity = t.si; sun.position.set(...t.sp); if (typeof SHADOW !== 'undefined') SHADOW.dirty = true;
   for (const f of FLOODS) f.intensity = t.flood;
   lampMat.emissive.set(t.flood ? 0xfff0c0 : 0x000000);
   windowMat.emissive.set(t.win ? 0xe8b850 : 0x000000);
@@ -1795,10 +1861,10 @@ function updateCharMeshes() {
 
 // --- ball mesh + blob shadow + pass marker
 const ballMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(0.2, 1), new THREE.MeshLambertMaterial({ color: HEX('white'), flatShading: true }));
-ballMesh.castShadow = CFG.shadows; scene.add(ballMesh);
+ballMesh.castShadow = CFG.shadows; ballMesh.userData.dyn = true; scene.add(ballMesh);
 const ballPatch = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.12), mat('crimson')); ballPatch.position.set(0, 0.16, 0); ballMesh.add(ballPatch);
 const blob = new THREE.Mesh(new THREE.CircleGeometry(0.24, 10), new THREE.MeshBasicMaterial({ color: HEX('ink'), transparent: true, opacity: 0.5, depthWrite: false }));
-blob.rotation.x = -Math.PI / 2; scene.add(blob);
+blob.rotation.x = -Math.PI / 2; blob.userData.dyn = true; scene.add(blob);
 const marker = new THREE.Group(); scene.add(marker); marker.visible = false;
 {
   const ring = new THREE.Mesh(new THREE.RingGeometry(0.45, 0.75, 12), new THREE.MeshBasicMaterial({ color: HEX('yellow'), side: THREE.DoubleSide }));
@@ -3635,7 +3701,9 @@ function placeCamera() {
   _rt.crossVectors(_fw, UP).normalize(); _up.crossVectors(_rt, _fw);
   const mpp = (camera.top - camera.bottom) / RH;
   const t = CAM.target;
-  const r = Math.round(t.dot(_rt) / mpp) * mpp, u = Math.round(t.dot(_up) / mpp) * mpp, f = t.dot(_fw);
+  const sn = PIX.snap ? Math.round : v => v;   // ?snap=0: test switch, no grid snap (shows the shimmer the snap removes)
+  const r = sn(t.dot(_rt) / mpp) * mpp, u = sn(t.dot(_up) / mpp) * mpp, f = t.dot(_fw);
+  CAM.sub[0] = (t.dot(_rt) - r) / mpp; CAM.sub[1] = (t.dot(_up) - u) / mpp;
   _tg.copy(_rt).multiplyScalar(r).addScaledVector(_up, u).addScaledVector(_fw, f);
   camera.position.copy(_tg).addScaledVector(_fw, -CAM.dist);
   camera.up.copy(UP); camera.lookAt(_tg);
@@ -3787,6 +3855,13 @@ window.__game = {
   pause(v = true) { STATE.paused = v; },
   renderBench(n = 30) { const gl = renderer.getContext(), px = new Uint8Array(4); renderFrame(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); const t = performance.now(); for (let i = 0; i < n; i++) { renderFrame(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); } return (performance.now() - t) / n; },
   info() { renderer.info.autoReset = false; renderer.info.reset(); renderer.setRenderTarget(RT); renderer.render(scene, camera); renderer.setRenderTarget(null); const o = { calls: renderer.info.render.calls, tris: renderer.info.render.triangles, rt: [RW, RH], s: PXS, tier: QUAL.tier }; renderer.info.autoReset = true; return o; },
+  get batch() { return { on: BATCH.on, before: BATCH.before, after: BATCH.after, groups: BATCH.groups, list: BATCH.list }; }, get shadowBakes() { return SHADOW.bakes; }, get pix() { return { n: postMat.uniforms.nStr.value, sub: PIX.sub, sx: PIX.sx, sy: PIX.sy, camSub: CAM.sub.slice(), M: PIX.M }; },
+  setPix(o) { if (o.n != null) PIX.nStr = o.n; if (o.sub != null) PIX.sub = !!o.sub; postMat.uniforms.nStr.value = PIX.nStr; },
+  frameStats() { renderer.info.autoReset = false; const out = {}; PIX.stats = out; renderer.info.reset(); renderFrame(); PIX.stats = null; out.total = { calls: renderer.info.render.calls, tris: renderer.info.render.triangles }; renderer.info.autoReset = true; return out; },
+  // CPU side of a frame (three.js + GL command submission), the GPU finishing outside the timed part
+  cpuBench(n = 8) { const gl = renderer.getContext(), px = new Uint8Array(4); let s = 0; for (let i = 0; i < n; i++) { gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); const t = performance.now(); renderFrame(); s += performance.now() - t; } gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); return s / n; },
+  get ballXZ() { return [ball.p.x, ball.p.z]; },
+  get _dbg() { return { THREE, renderer, scene, sun, camera, PIX, SHADOW, postMat, RT }; },
   testSolvers, placeMarkerAt, setDebugSpeed(n) { DEBUG_SPEED = Math.max(1, Math.min(200, n)); }, debugView(x, y, z, zm) { CAM.dbg = [x, y, z, zm]; STATE.cam = 'debug'; CAM.target.set(x, y, z); CAM.zoom = zm; updateCameraFrustum(); placeCamera(); }, courtToScreen(x, z) { const v = new V3(x, 0, z).project(camera); const r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; },
 };
 
@@ -3832,7 +3907,199 @@ function tickerPush(min, text, cls) {
   const b = document.createElement('b'); b.textContent = min; d.append(b, document.createTextNode(text)); box.append(d);
 }
 
+
+/* =====================================================================
+   合批 STATIC BATCHING + 静态阴影冻结 FROZEN STATIC SHADOWS  (2026-11-03)
+   After the world is built, every static mesh is merged into a few big meshes: one per (cut-away switch, material
+   kind, shadow flags). Plain-colour Lambert boxes / cylinders share one vertex-colour material (the colour moves
+   into a vertex attribute, the shading is unchanged); textured or live materials (brick, posts, windows, lamps, the
+   fence) are merged per material. Moving things (people, ball, flag, nets, clock hands, signs) stay as they are.
+   mergeGeometries / mergeAttributes: three.js r160 examples/jsm/utils/BufferGeometryUtils.js, MIT License,
+   Copyright © 2010-2023 three.js authors (https://github.com/mrdoob/three.js/blob/r160/LICENSE); trimmed to what
+   we use (no morph targets, no groups, no interleaved attributes).
+   ===================================================================== */
+function mergeAttributes(attributes) {
+  let TypedArray, itemSize, normalized, arrayLength = 0;
+  for (const a of attributes) {
+    if (TypedArray === undefined) TypedArray = a.array.constructor;
+    if (TypedArray !== a.array.constructor) return null;
+    if (itemSize === undefined) itemSize = a.itemSize;
+    if (itemSize !== a.itemSize) return null;
+    if (normalized === undefined) normalized = a.normalized;
+    if (normalized !== a.normalized) return null;
+    arrayLength += a.array.length;
+  }
+  const array = new TypedArray(arrayLength); let offset = 0;
+  for (const a of attributes) { array.set(a.array, offset); offset += a.array.length; }
+  return new THREE.BufferAttribute(array, itemSize, normalized);
+}
+function mergeGeometries(geometries) {
+  const isIndexed = geometries[0].index !== null, used = new Set(Object.keys(geometries[0].attributes)), attributes = {};
+  const merged = new THREE.BufferGeometry();
+  for (const g of geometries) {
+    if (isIndexed !== (g.index !== null)) return null;
+    let n = 0;
+    for (const name in g.attributes) { if (!used.has(name)) return null; (attributes[name] = attributes[name] || []).push(g.attributes[name]); n++; }
+    if (n !== used.size) return null;
+  }
+  if (isIndexed) {
+    let off = 0; const idx = [];
+    for (const g of geometries) { for (let j = 0; j < g.index.count; j++) idx.push(g.index.getX(j) + off); off += g.attributes.position.count; }
+    merged.setIndex(idx);
+  }
+  for (const name in attributes) { const m = mergeAttributes(attributes[name]); if (!m) return null; merged.setAttribute(name, m); }
+  return merged;
+}
+
+const BATCH = { on: Q.get('batch') !== '0', before: 0, after: 0, groups: 0, tris: 0, list: [] };
+const VC_MATS = {};
+function vcMat(side, flat) {
+  const k = side + '|' + flat;
+  return VC_MATS[k] || (VC_MATS[k] = new THREE.MeshLambertMaterial({ vertexColors: true, side, flatShading: flat }));
+}
+const _bc = new THREE.Color();
+function batchStatic() {
+  if (!BATCH.on) return;
+  scene.updateMatrixWorld(true);
+  // which cut-away switch hides a mesh: a near-side group, a floodlight mast, or none
+  const visOf = new Map();
+  for (const k in SIDES) for (const o of SIDES[k].objs) visOf.set(o, 'side:' + k);
+  MASTS.forEach((m, i) => m.grp.forEach(o => visOf.set(o, 'mast:' + i)));
+  // moving groups made of one material (the goal nets) become one mesh in the group's own space
+  const one = []; scene.traverse(g => { const ch = g.children; if (g.userData.dyn && !g.isMesh && ch.length > 1 && ch.every(c => c.isMesh && !c.isInstancedMesh && !c.children.length && c.material === ch[0].material)) one.push(g); });
+  for (const g of one) {
+    const geos = g.children.map(c => { c.updateMatrix(); const q = c.geometry.index ? c.geometry.toNonIndexed() : c.geometry.clone(); for (const n of Object.keys(q.attributes)) if (!['position', 'normal', 'uv'].includes(n)) q.deleteAttribute(n); return q.applyMatrix4(c.matrix); });
+    const geo = mergeGeometries(geos); if (!geo) continue;
+    const m = new THREE.Mesh(geo, g.children[0].material); m.renderOrder = g.children[0].renderOrder;
+    BATCH.before += g.children.length; BATCH.after++; BATCH.list.push(['dyn', m.material.type, g.children.length]);
+    g.clear(); g.add(m);
+  }
+  const buckets = new Map();
+  const baseOBC = THREE.Material.prototype.onBeforeCompile;
+  scene.traverse(o => {
+    if (!o.isMesh || o.isInstancedMesh || o.isSkinnedMesh) return;
+    let vis = 'all', skip = false;
+    for (let a = o; a; a = a.parent) { if (a.userData.dyn || !a.visible) skip = true; if (vis === 'all' && visOf.has(a)) vis = visOf.get(a); }
+    const m = o.material;
+    if (skip || Array.isArray(m) || !m.isMeshLambertMaterial && !m.isMeshBasicMaterial) return;
+    BATCH.before++;
+    const plain = m.isMeshLambertMaterial && !m.map && !m.transparent && !m.vertexColors && !m.userData.live &&
+      m.onBeforeCompile === baseOBC && m.emissive.getHex() === 0 && m.opacity === 1;
+    const key = [vis, plain ? 'vc:' + m.side + ':' + m.flatShading : 'id:' + m.uuid, o.castShadow, o.receiveShadow, o.renderOrder].join('|');
+    let b = buckets.get(key); if (!b) buckets.set(key, b = { vis, plain, mat: m, cast: o.castShadow, recv: o.receiveShadow, ro: o.renderOrder, items: [] });
+    b.items.push(o);
+  });
+  for (const b of buckets.values()) {
+    if (!b.plain && b.items.length < 2) { BATCH.after += 1; continue; }
+    const want = b.plain ? ['position', 'normal', 'color'] : ['position', 'normal', 'uv'].concat(b.mat.vertexColors ? ['color'] : []);
+    const geos = b.items.map(o => {
+      let g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+      for (const name of Object.keys(g.attributes)) if (!want.includes(name)) g.deleteAttribute(name);
+      const n = g.attributes.position.count;
+      if (!g.attributes.normal) g.computeVertexNormals();
+      if (want.includes('uv') && !g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(n * 2), 2));
+      if (b.plain) { _bc.copy(o.material.color); const c = new Float32Array(n * 3); for (let i = 0; i < n; i++) c.set([_bc.r, _bc.g, _bc.b], i * 3); g.setAttribute('color', new THREE.Float32BufferAttribute(c, 3)); }
+      g.applyMatrix4(o.matrixWorld);
+      if (o.matrixWorld.determinant() < 0) { const p = g.attributes; for (const name in p) { const a = p[name], s = a.itemSize; for (let i = 0; i < n; i += 3) for (let k = 0; k < s; k++) { const t = a.array[(i + 1) * s + k]; a.array[(i + 1) * s + k] = a.array[(i + 2) * s + k]; a.array[(i + 2) * s + k] = t; } } }
+      return g;
+    });
+    const geo = mergeGeometries(geos);
+    if (!geo) { console.warn('batch: merge failed', b.items.length); BATCH.after += b.items.length; continue; }
+    geo.computeBoundingSphere(); geo.computeBoundingBox();
+    const mesh = new THREE.Mesh(geo, b.plain ? vcMat(b.mat.side, b.mat.flatShading) : b.mat);
+    mesh.castShadow = b.cast; mesh.receiveShadow = b.recv; mesh.renderOrder = b.ro;
+    mesh.matrixAutoUpdate = false; mesh.userData.batch = b.items.length;
+    for (const o of b.items) o.removeFromParent();
+    scene.add(mesh);
+    if (b.vis.startsWith('side:')) SIDES[b.vis.slice(5)].objs.push(mesh);
+    else if (b.vis.startsWith('mast:')) (MASTS[+b.vis.slice(5)].add = MASTS[+b.vis.slice(5)].add || []).push(mesh);
+    BATCH.after++; BATCH.groups++; BATCH.tris += (geo.attributes.position.count / 3) | 0;
+    BATCH.list.push([b.vis, b.plain ? 'vc' : (b.mat.name || b.mat.type), b.items.length]);
+  }
+  // each mast's cut-away list: what did not merge (still in the scene) + its merged meshes
+  for (const M of MASTS) { M.grp = M.grp.filter(o => o.parent).concat(M.add || []); delete M.add; }
+}
+
+/* ---- frozen static shadows ----
+   The sun's shadow map is rendered once with only the static casters (on start, time-of-day change, quality change
+   and when the cut-away changes which side is hidden) and kept in STATIC_SH. Each frame the static map is copied back
+   (colour + depth) only over the rectangle the moving casters covered last frame and cover now, then the people,
+   ball and flag are drawn into it with the same depth material three.js uses. Same shadows, a fraction of the work. */
+const SHADOW = { on: !!CFG.shadows && Q.get('sfreeze') !== '0', dirty: true, rt: null, dummy: null, prev: null, bakes: 0, sig: '' };
+const SH_DYN = [], SH_DYN2 = [];   // moving casters: front-face materials / double-sided (flag)
+const SH_LAYER = 2, SH_LAYER2 = 3;
+const shDepth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, side: THREE.BackSide });
+const shDepth2 = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, side: THREE.DoubleSide });
+const shCopy = new THREE.ShaderMaterial({
+  uniforms: { tMap: { value: null }, depthOut: { value: 0 } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }',
+  fragmentShader: `#include <packing>
+    uniform sampler2D tMap; uniform float depthOut; varying vec2 vUv;
+    void main(){ vec4 c = texture2D(tMap, vUv); gl_FragColor = c; if (depthOut > 0.5) gl_FragDepthEXT = unpackRGBAToDepth(c); }`,
+  depthTest: true, depthWrite: true, depthFunc: THREE.AlwaysDepth,
+});
+shCopy.extensions.fragDepth = true;
+const shCopyScene = new THREE.Scene(), shCopyCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+shCopyScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), shCopy));
+function shadowDyn(o, dbl) { if (!o) return; (dbl ? SH_DYN2 : SH_DYN).push(o); o.traverse(c => c.layers.enable(dbl ? SH_LAYER2 : SH_LAYER)); }
+function shadowSig() { let s = ''; for (const k in SIDES) s += SIDES[k].objs.map(o => o.visible ? 1 : 0).join(''); for (const m of MASTS) s += m.grp.map(o => o.visible ? 1 : 0).join(''); return s; }
+function shadowCopy(dst, src, depth, rect) {
+  shCopy.uniforms.tMap.value = src.texture; shCopy.uniforms.depthOut.value = depth ? 1 : 0;
+  const ac = renderer.autoClear; renderer.autoClear = false;
+  // a render target's scissor is applied by setRenderTarget, so set it first
+  if (rect) { dst.scissor.set(rect[0], rect[1], rect[2] - rect[0], rect[3] - rect[1]); dst.scissorTest = true; }
+  renderer.setRenderTarget(dst);
+  renderer.render(shCopyScene, shCopyCam);
+  dst.scissorTest = false; renderer.autoClear = ac;
+}
+// shadow-map pixel rectangle covering the moving casters (people + ball), from their world positions
+const _shv = new THREE.Vector3();
+function shadowRect() {
+  const sc = sun.shadow.camera, N = sun.shadow.mapSize.x;
+  let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, any = false;
+  const add = (x, y, z) => { _shv.set(x, y, z).applyMatrix4(sc.matrixWorldInverse).applyMatrix4(sc.projectionMatrix);
+    const px = (_shv.x + 1) / 2 * N, py = (_shv.y + 1) / 2 * N; x0 = Math.min(x0, px); x1 = Math.max(x1, px); y0 = Math.min(y0, py); y1 = Math.max(y1, py); any = true; };
+  for (const c of CHARS) if (c.visible) for (const y of [0, 2.6]) { add(c.pos.x - 1.2, y, c.pos.z - 1.2); add(c.pos.x + 1.2, y, c.pos.z + 1.2); add(c.pos.x - 1.2, y, c.pos.z + 1.2); add(c.pos.x + 1.2, y, c.pos.z - 1.2); }
+  for (const y of [0, ball.p.y + 0.6]) { add(ball.p.x - 0.6, y, ball.p.z - 0.6); add(ball.p.x + 0.6, y, ball.p.z + 0.6); }
+  // the flag on its pole (fixed box around its sweep)
+  for (const y of [7.2, 9.0]) for (const [dx, dz] of [[-0.4, -2.4], [2.6, -2.4], [-0.4, 0.6], [2.6, 0.6]]) add(-26.6 + dx, y, 11.8 + dz);
+  if (!any) return null;
+  const m = 3; return [Math.max(0, Math.floor(x0) - m), Math.max(0, Math.floor(y0) - m), Math.min(N, Math.ceil(x1) + m), Math.min(N, Math.ceil(y1) + m)];
+}
+const uniteRect = (a, b) => !a ? b : !b ? a : [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])];
+function shadowFrame() {
+  if (!SHADOW.on) return;
+  const sig = shadowSig(); if (sig !== SHADOW.sig) { SHADOW.sig = sig; SHADOW.dirty = true; }
+  if (SHADOW.dirty || !sun.shadow.map) {
+    // static bake: render the scene once (to a 1x1 target) with the moving casters switched off
+    SHADOW.dirty = false; SHADOW.bakes++;
+    const cs = [...SH_DYN, ...SH_DYN2].map(o => [o, o.castShadow]); for (const [o] of cs) o.castShadow = false;
+    if (!SHADOW.dummy) SHADOW.dummy = new THREE.WebGLRenderTarget(1, 1);
+    renderer.shadowMap.needsUpdate = true;
+    renderer.setRenderTarget(SHADOW.dummy); renderer.render(scene, camera);
+    for (const [o, v] of cs) o.castShadow = v;
+    const map = sun.shadow.map, N = map.width;
+    if (!SHADOW.rt || SHADOW.rt.width !== N) { if (SHADOW.rt) SHADOW.rt.dispose(); SHADOW.rt = new THREE.WebGLRenderTarget(N, N, { depthBuffer: false, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter }); }
+    shadowCopy(SHADOW.rt, map, false, null);
+    SHADOW.prev = null;
+  }
+  // restore the static map where moving casters were / will be, then draw them
+  const map = sun.shadow.map, cur = shadowRect(), rect = uniteRect(SHADOW.prev, cur);
+  if (rect) shadowCopy(map, SHADOW.rt, true, rect);
+  SHADOW.prev = cur;
+  const bg = scene.background, ov = scene.overrideMaterial, ac = renderer.autoClear, sc = sun.shadow.camera, lm = sc.layers.mask;
+  scene.background = null; renderer.autoClear = false; renderer.setRenderTarget(map);
+  for (const [L, M] of [[SH_LAYER, shDepth], [SH_LAYER2, shDepth2]]) { scene.overrideMaterial = M; sc.layers.set(L); renderer.render(scene, sc); }
+  sc.layers.mask = lm; scene.background = bg; scene.overrideMaterial = ov; renderer.autoClear = ac;
+}
+if (SHADOW.on) {
+  renderer.shadowMap.autoUpdate = false;
+  QUAL.register(() => { SHADOW.dirty = true; });
+}
+
 // --- boot
+batchStatic(); pixInit();
+shadowDyn(charMesh); shadowDyn(ballMesh); scene.traverse(o => { if (o.userData.shDbl) shadowDyn(o, true); });
 applySurface(STATE.surface); applyTOD(STATE.tod);
 buildNav(); initChars();
 resize(); updateCutaway();
