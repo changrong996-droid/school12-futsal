@@ -218,16 +218,25 @@ function SND_FACTORY() {
     }
     return segs;
   }
-  // "jia you!" style chant shout (two syllables, rising second)
-  // two-syllable Mandarin-like shouts: 0 "jia you" (level, rising) 1 "hao qiu" (falling-rising, rising) 2 "she men" (falling, rising) 3 "kuai pao" (falling, falling-rising)
-  function planShout(R, kid, pat = 0) {
-    const segs = []; let t = 0.05; const reps = pat === 0 ? 1 + ((R() * 2) | 0) : 1, p = (kid ? 1.0 : 1.2) * (0.86 + R() * 0.28);
-    const P = [[['i', 'a', 1, 1, 1], ['i', 'o', 0.92, 1.12, 1.08]], [['a', 'o', 1.05, 0.9, 1.0], ['i', 'u', 0.95, 1.15, 1.12]], [['er', 'E', 1.15, 0.92, 0.88], ['E', 'er', 0.9, 1.1, 1.08]], [['u', 'a', 1.15, 1.0, 0.88], ['a', 'o', 0.95, 0.88, 1.05]]][pat];
-    for (let k = 0; k < reps; k++) {
-      const [s1, s2] = P, d1 = 0.22 + R() * 0.08, d2 = 0.34 + R() * 0.12;
-      segs.push({ t0: t, dur: d1, v0: s1[0], v1: s1[1], amp: 1, p0: p * s1[2], pm: p * s1[3], p1: p * s1[4], pk: 0.4, a: 0.02, r: 0.05, br: 0.08, cons: 0.025, camp: 0.5 });
-      segs.push({ t0: t + d1 + 0.05, dur: d2, v0: s2[0], v1: s2[1], amp: 0.95, p0: p * s2[2], pm: p * s2[3], p1: p * s2[4], pk: 0.6, a: 0.02, r: 0.12, br: 0.08, cons: R() < 0.5 ? 0.02 : 0, camp: 0.4 });
-      t += d1 + d2 + 0.25;
+  // single fans shouting short Mandarin-like cheers. Syllable = [v0, v1, p0, pm, p1] (pitch multipliers; pm = peak).
+  // 0 jia-you 1 hao-qiu 2 she-men 3 kuai-pao 4 jia-you-a 5 chong-a 6 hao! 7 ding-zhu 8 jia-you jia-you (quick double)
+  const SHOUTS = [
+    [['i', 'a', 1, 1, 1], ['i', 'o', 0.92, 1.12, 1.08]], [['a', 'o', 1.05, 0.9, 1.0], ['i', 'u', 0.95, 1.15, 1.12]], [['er', 'E', 1.15, 0.92, 0.88], ['E', 'er', 0.9, 1.1, 1.08]],
+    [['u', 'a', 1.15, 1.0, 0.88], ['a', 'o', 0.95, 0.88, 1.05]], [['i', 'a', 1, 1.02, 1], ['i', 'o', 0.95, 1.12, 1.06], ['a', 'a', 1.08, 1.0, 0.82]], [['o', 'o', 1.12, 1.06, 0.96], ['a', 'a', 1.2, 1.1, 0.8]],
+    [['a', 'o', 1.0, 1.28, 0.86]], [['i', 'i', 1.22, 1.02, 0.88], ['u', 'u', 1.05, 0.95, 0.9]], [['i', 'a', 1, 1, 1], ['i', 'o', 0.95, 1.08, 1.04], ['i', 'a', 1.02, 1.02, 1.0], ['i', 'o', 0.95, 1.14, 1.1]]];
+  function planShout(R, kid, pat = 0, o = {}) {
+    const segs = [], P = SHOUTS[pat % SHOUTS.length], chant = pat === 0 || pat === 5;
+    const reps = chant ? 1 + ((R() * 2.6) | 0) : R() < 0.15 ? 2 : 1, tempo = o.tempo || (0.82 + R() * 0.4), p = (kid ? 1.0 : 1.2) * (o.pitch || (0.86 + R() * 0.28));
+    let t = 0.05 + R() * 0.08;
+    for (let k = 0; k < reps && t < 2.4; k++) {
+      const tired = 1 - k * (0.04 + R() * 0.05);          // later repeats a little lower and softer
+      P.forEach((sy, j) => {
+        const last = j === P.length - 1, d = (last ? 0.3 + R() * 0.2 : 0.16 + R() * 0.12) * tempo, pj = p * tired * (1 + (R() - 0.5) * 0.08);
+        segs.push({ t0: t, dur: d, v0: sy[0], v1: sy[1], amp: (last ? 0.95 : 1) * tired * (0.85 + R() * 0.15), p0: pj * sy[2], pm: pj * sy[3] * (last ? 1 + R() * 0.06 : 1), p1: pj * sy[4],
+          pk: last ? 0.45 + R() * 0.25 : 0.3 + R() * 0.2, a: 0.015 + R() * 0.015, r: last ? 0.08 + R() * 0.1 : 0.04, br: 0.06 + R() * 0.08, cons: j === 0 || R() < 0.4 ? 0.02 + R() * 0.01 : 0, camp: 0.35 + R() * 0.2 });
+        t += d + (0.03 + R() * 0.06) * tempo;
+      });
+      t += (0.18 + R() * 0.22) * tempo;
     }
     return segs;
   }
@@ -421,7 +430,12 @@ function SND_FACTORY() {
     for (let k = 0; k < 3; k++) L.push({ name: 'gasp' + k, crowd: true, make: () => normRMS(crowdVoices(CSR, 2.6, R, { n: 34, kid: 0.5, fem: 0.55, br: 0.3, jit: 0.04, rough: 0.25, plan: () => planReaction(R, 'gasp', { spread: 0.28 }) }), 0.12) });
     for (let k = 0; k < 2; k++) L.push({ name: 'groan' + k, crowd: true, make: () => normRMS(crowdVoices(CSR, 2.4, R, { n: 26, kid: 0.4, fem: 0.5, br: 0.2, plan: () => planReaction(R, 'groan', { spread: 0.3 }) }), 0.1) });
     for (let k = 0; k < 2; k++) L.push({ name: 'protest' + k, crowd: true, make: () => normRMS(crowdVoices(CSR, 1.6, R, { n: 22, kid: 0.35, fem: 0.45, br: 0.1, plan: () => planReaction(R, 'protest', { spread: 0.3 }) }), 0.1) });
-    for (let k = 0; k < 12; k++) L.push({ name: 'shout' + k, crowd: true, make: () => { const kid = k % 3 !== 2; const nv = 1 + (k % 3), pat = k % 4, lag = []; return normPeak(crowdVoices(CSR, 2.4, R, { n: nv, kid: kid ? 1 : 0.3, fem: k % 2 ? 0.8 : 0.3, width: 0.5, br: 0.1, jit: 0.04, rough: 0.2, plan: i => planShout(R, kid, pat).map(sg => Object.assign(sg, { t0: sg.t0 + i * (0.03 + R() * 0.07) })) }), 0.7); } });
+    // 24 individual shouts: 9 phrases x kid/adult x 1-3 voices, each with its own tempo, pitch, repeats and timbre (fewer audible repeats)
+    for (let k = 0; k < 24; k++) L.push({ name: 'shout' + k, crowd: true, make: () => {
+      const kid = R() < 0.62, nv = R() < 0.45 ? 1 : R() < 0.6 ? 2 : 3, pat = (k * 5) % SHOUTS.length, tempo = 0.82 + R() * 0.4, pitch = 0.86 + R() * 0.28;
+      const ch = crowdVoices(CSR, 3, R, { n: nv, kid: kid ? 1 : 0.25, fem: R(), width: 0.3 + R() * 0.4, br: 0.06 + R() * 0.1, jit: 0.03 + R() * 0.03, rough: 0.1 + R() * 0.25, bright: 0.18 + R() * 0.2,
+        plan: i => planShout(R, kid, pat, { tempo: tempo * (1 + (R() - 0.5) * 0.06), pitch: pitch * (1 + (R() - 0.5) * 0.12) }).map(sg => Object.assign(sg, { t0: sg.t0 + i * (0.03 + R() * 0.08) })) });
+      return normPeak(ch, 0.55 + R() * 0.2); } });
     L.push({ name: 'applause0', crowd: true, make: () => normRMS(synthApplause(CSR, 7, R, { n: 34, rate: 3.8, startSpread: 0.6, tail: 3.5, env: t => t < 1.5 ? 1 : Math.max(0, 1 - (t - 1.5) / 5) }), 0.12) });
     L.push({ name: 'applause1', crowd: true, make: () => normRMS(synthApplause(CSR, 5, R, { n: 22, rate: 3.4, startSpread: 0.5, tail: 2.5, env: t => Math.max(0, 1 - t / 4.6) }), 0.1) });
     return L;
@@ -485,6 +499,8 @@ function SND_FACTORY() {
     constructor(ctx, o = {}) {
       this.ctx = ctx; this.o = o; this.R = mulberry(o.seed != null ? o.seed : (Math.random() * 1e9) | 0);
       this.buf = {}; this.ready = false; this.started = false; this.react = []; this.last = {}; this.recs = o.recs || null; this.crowdMode = o.crowd || 'synth'; this.whistleMode = o.whistle || 'synth';
+      // per-layer source: o.src = {bed, whistle, gasp, groan, cheer, applause} each 'synth' | 'rec'; otherwise derived from the legacy crowd/whistle modes
+      this.src = Object.assign(Engine.srcFromModes(this.crowdMode, this.whistleMode), o.src || {});
       const c = ctx;
       this.limiter = c.createDynamicsCompressor();
       Object.assign(this.limiter, {}); this.limiter.threshold.value = -6; this.limiter.knee.value = 6; this.limiter.ratio.value = 8; this.limiter.attack.value = 0.003; this.limiter.release.value = 0.2;
@@ -521,7 +537,11 @@ function SND_FACTORY() {
       this.recs = recs; return recs;
     }
     recPick(prefix) { const a = this.recs && this.recs[prefix]; if (!a || !a.length) return null; let k = (this.R() * a.length) | 0; if (a.length > 1 && k === this.last['r' + prefix]) k = (k + 1) % a.length; this.last['r' + prefix] = k; return a[k]; }
-    useRec(prefix) { return (this.crowdMode === 'rec' || (this.crowdMode === 'hybrid' && prefix !== 'murmur')) && this.recs && this.recs[prefix] && this.recs[prefix].length; }
+    static srcFromModes(crowd, whistle) { const r = crowd === 'rec', h = r || crowd === 'hybrid', v = x => x ? 'rec' : 'synth'; return { bed: v(r), gasp: v(h), groan: v(h), cheer: v(h), applause: v(h), whistle: v(whistle === 'rec') }; }
+    needsRecs() { return Object.values(this.src).includes('rec'); }
+    allSynth() { for (const k in this.src) this.src[k] = 'synth'; this.crowdMode = this.whistleMode = 'synth'; }
+    // a layer uses its recording only when asked to AND the recording actually loaded (otherwise: synthesis)
+    useRec(prefix) { const layer = prefix === 'murmur' ? 'bed' : prefix; return this.src[layer] === 'rec' && !!(this.recs && this.recs[prefix] && this.recs[prefix].length); }
     async init(progress) {
       const all = await synthAll(this.o.synthSeed || SYN_SEED, this.ctx.sampleRate, progress);
       for (const k in all) { if (k === '__ir') this.verb.buffer = this.toBuffer(all[k].ch, all[k].sr); else this.buf[k] = this.toBuffer(all[k].ch, all[k].sr); }
@@ -531,7 +551,10 @@ function SND_FACTORY() {
     pick(prefix) { // random variant, avoiding the last one used
       let n = 0; while (this.buf[prefix + n]) n++;
       if (!n) return null;
-      let k = (this.R() * n) | 0; if (n > 1 && k === this.last[prefix]) k = (k + 1) % n; this.last[prefix] = k;
+      let k = (this.R() * n) | 0;
+      if (n >= 8) { const h = this.last['h_' + prefix] || (this.last['h_' + prefix] = []); while (h.includes(k)) k = (k + 1) % n; h.push(k); if (h.length > Math.min(6, n >> 1)) h.shift(); }   // big pools: no repeat among the last few
+      else if (n > 1 && k === this.last[prefix]) k = (k + 1) % n;
+      this.last[prefix] = k;
       return this.buf[prefix + k];
     }
     play(buf, when, o = {}) {
@@ -605,14 +628,17 @@ function SND_FACTORY() {
       for (const st of this.stands) {
         const w = weights ? weights[st.i] : 1; if (w <= 0.01) continue;
         if (only && !only.has(st.i)) continue;
-        let buf = null, off = 0;
-        if (this.useRec(prefix)) buf = this.recPick(prefix);
+        let buf = null, off = 0, rec = false;
+        if (this.useRec(prefix)) { buf = this.recPick(prefix); rec = !!buf; }
         if (!buf) buf = this.pick(prefix);
         if (!buf) continue;
         const jitter = R() * 0.05, rate = 0.95 + R() * 0.1;
         const fade = kind === 'surge' ? 0.45 : kind === 'cheer' ? 0.07 : kind === 'shout' ? 0 : 0.035;
-        const pl = this.play(buf, when + jitter, { dest: st.rx, gain: strength * w, rate, offset: kind === 'surge' ? 0.6 + R() * 0.6 : off, fade });
+        if (kind === 'surge') off = 0.6 + R() * 0.6;
+        // recorded cheer over the synthesized bed: soften its indoor top end and let its tail melt away slowly (no noise-floor drop at the end)
+        const pl = this.play(buf, when + jitter, { dest: st.rx, gain: strength * w, rate, offset: off, fade, lp: rec && prefix === 'cheer' ? 5200 : 0 });
         if (!pl) continue;
+        if (rec && prefix === 'cheer') pl.g.gain.setTargetAtTime(0, when + jitter + Math.max(1, (buf.duration - off) / rate - 3.2), 1.1);
         if (o.fadeAfter) pl.g.gain.setTargetAtTime(0, when + o.fadeAfter, 0.4);
         this.react.push({ g: pl.g, prio, end: when + buf.duration / rate, kind });
       }
@@ -630,14 +656,16 @@ function SND_FACTORY() {
     whistle(name, when, gain = 1) {
       let b = name.endsWith('_') ? this.pick(name.slice(0, -1)) : this.buf[name]; if (!b) return;
       let dur = b.duration;
-      if (this.whistleMode === 'rec' && this.recs && this.recs.whistle) {
+      if (this.useRec('whistle')) {
         const [w0, w1] = [this.recs.whistle[0], this.recs.whistle[1] || this.recs.whistle[0]];
         const seq = { wShort_: [[0, w0]], wLong_: [[0, w1]], wHalf: [[0, w0], [0.62, w1]], wFull: [[0, w0], [0.6, w0], [1.2, w1]] }[name] || [[0, w0]];
         for (const [dt, wb] of seq) this.play(wb, when + dt, { gain: 0.4 * gain, pan: 0.05, send: 0.35, rate: 1 + (this.R() - 0.5) * 0.02, lp: 7000 });
         dur = seq[seq.length - 1][0] + seq[seq.length - 1][1].duration;
       } else this.play(b, when, { gain: 0.38 * gain, pan: 0.05, send: 0.35, rate: 1 + (this.R() - 0.5) * 0.02, lp: 6500 });
       // duck the crowd under the whistle
-      const d = this.duck.gain; d.cancelScheduledValues(when); d.setTargetAtTime(0.86, when, 0.12); d.setTargetAtTime(1, when + dur * 0.9, 0.9);
+      const d = this.duck.gain;
+      if (d.cancelAndHoldAtTime) d.cancelAndHoldAtTime(when); else d.cancelScheduledValues(when);
+      d.setTargetAtTime(0.93, when, 0.25); d.setTargetAtTime(1, when + dur * 0.8, 1.4);   // ~-0.6 dB, slow in/out: no audible pumping
     }
     // ----- the director: game events -> layered sound -----
     event(ev, when, rate = 1) {
@@ -685,7 +713,7 @@ function SND_FACTORY() {
           this.whistle(map[ev.kind] || 'wShort_', when, ev.kind === 'restart' ? 0.8 : 1); return;
         }
         case 'applause': this.applause(when, ev.level || 0.5, W, ev.big); if (ev.cheer) this.crowdReact('cheer', when + 0.05, ev.cheer, W, { fadeAfter: 1.6 }); return;
-        case 'shout': { if (fast) return; const b = this.pick('shout'); this.play(b, when, { dest: this.stands[(R() * this.stands.length) | 0].rx, gain: (ev.level || 0.2) * 0.8, rate: 0.9 + R() * 0.2, pan: (R() - 0.5) * 0.8, lp: 2500 + R() * 3000 }); return; }
+        case 'shout': { if (fast) return; const b = this.pick('shout'); this.play(b, when, { dest: this.stands[(R() * this.stands.length) | 0].rx, gain: (ev.level || 0.2) * (0.65 + R() * 0.3), rate: 0.88 + R() * 0.24, pan: (R() - 0.5) * 0.9, lp: 2200 + R() * 3500, send: 0.1 + R() * 0.25 }); return; }
       }
     }
   }
@@ -693,8 +721,8 @@ function SND_FACTORY() {
   async function renderLog(o) {
     const sr = o.sr || 44100, t0 = o.t0, t1 = o.t1, pre = o.pre != null ? o.pre : 6, ta = Math.max(0, t0 - pre);
     const ctx = new OfflineAudioContext(2, Math.ceil((t1 - ta) * sr), sr);
-    const eng = new Engine(ctx, { seed: o.seed || 7, crowd: o.crowd, whistle: o.whistle, stands: o.stands, surface: o.surface, volume: o.volume });
-    if (o.recSrc) await eng.loadRecs(o.recSrc, o.recMap);
+    const eng = new Engine(ctx, { seed: o.seed || 7, crowd: o.crowd, whistle: o.whistle, src: o.src, stands: o.stands, surface: o.surface, volume: o.volume });
+    if (o.recSrc) { try { await eng.loadRecs(o.recSrc, o.recMap); } catch (e) { eng.allSynth(); } }
     await eng.init();
     const first = o.snaps.find(s => s.t >= ta) || o.snaps[0] || {};
     if (first.surf) eng.surface = first.surf;
@@ -717,7 +745,7 @@ function SND_FACTORY() {
 }
 const SND = SND_FACTORY();
 
-const SPRITE_MAP = {"cheer0": [0.4, 11.5], "cheer1": [12.3, 8.5], "gasp0": [21.2, 4.2], "gasp1": [25.8, 4.7], "groan0": [30.9, 2.5], "groan1": [33.8, 2.8], "groan2": [37.0, 3.2], "applause0": [40.6, 8.0], "applause1": [49.0, 4.4861], "murmur0": [53.8861, 20.0], "murmur1": [74.2861, 20.0], "whistle0": [94.6861, 0.5359], "whistle1": [95.622, 1.1]};
+const SPRITE_MAP = {"cheer0": [0.4, 11.5], "cheer1": [12.3, 8.5], "groan0": [21.2, 2.5], "groan1": [24.1, 2.8], "groan2": [27.3, 3.2], "whistle0": [30.9, 0.5109], "whistle1": [31.8109, 1.1]};
 const ORDER = {"whistle": ["r", "f", "p"], "whistleFull": ["r", "f", "p"], "ball": ["b", "a"], "murmur": ["r", "s", "n"], "tension": ["r", "s"], "gasp": ["s", "r"], "groan": ["r", "s"], "cheer": ["r", "s"], "applause": ["s", "r"], "combo": ["r", "s", "h"]};   // blind order of the versions in each category (shuffled at build time)
 let ctx = null, recs = null, vol = 0.7, live = [], ready = false, surface = 'rubber';
 const $ = id => document.getElementById(id);
