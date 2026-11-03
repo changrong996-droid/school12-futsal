@@ -411,12 +411,20 @@ function pixMips(tex, keep = [], prefer = []) {
   return tex;
 }
 // sample a material's colour map with a mip LOD bias (finer level than the GPU's max-derivative choice; the
-// ground is foreshortened by sin 31° so the default pick is one level too coarse across the screen)
-function mapBias(m, bias) {
+// ground is foreshortened by sin 31° so the default pick is one level too coarse across the screen).
+// keepProbe: also probe four points a quarter pixel around the centre; if any lands on a `keep` texel (court-line white)
+// the pixel takes it. Nearest sampling at ~1 texel per pixel step could step over a 1-texel line (a 1 px break on far
+// lines); the probes halve the step, so lines stay unbroken. Still one palette colour per pixel: no blending, no fringe.
+function mapBias(m, bias, keepProbe) {
   m.onBeforeCompile = sh => {
-    sh.uniforms.uMapBias = bias;
-    sh.fragmentShader = 'uniform float uMapBias;\n' + sh.fragmentShader.replace('#include <map_fragment>',
-      '#ifdef USE_MAP\n  vec4 sampledDiffuseColor = texture2D( map, vMapUv, uMapBias );\n  diffuseColor *= sampledDiffuseColor;\n#endif');
+    sh.uniforms.uMapBias = bias; sh.uniforms.uProbe = keepProbe || { value: 0 };
+    sh.fragmentShader = 'uniform float uMapBias; uniform float uProbe;\n' + sh.fragmentShader.replace('#include <map_fragment>',
+      '#ifdef USE_MAP\n  vec4 sampledDiffuseColor = texture2D( map, vMapUv, uMapBias );\n' +
+      '  if (uProbe > 0.5) {\n    vec2 qx = dFdx(vMapUv) * 0.25, qy = dFdy(vMapUv) * 0.25;\n' +
+      '    vec4 p0 = texture2D(map, vMapUv - qx - qy, uMapBias), p1 = texture2D(map, vMapUv + qx - qy, uMapBias), p2 = texture2D(map, vMapUv - qx + qy, uMapBias), p3 = texture2D(map, vMapUv + qx + qy, uMapBias);\n' +
+      '    if (p0.r > 0.9 && p0.b > 0.85) sampledDiffuseColor = p0; else if (p1.r > 0.9 && p1.b > 0.85) sampledDiffuseColor = p1;\n' +
+      '    else if (p2.r > 0.9 && p2.b > 0.85) sampledDiffuseColor = p2; else if (p3.r > 0.9 && p3.b > 0.85) sampledDiffuseColor = p3;\n  }\n' +
+      '  diffuseColor *= sampledDiffuseColor;\n#endif');
   };
   m.customProgramCacheKey = () => 'mapBias';
   return m;
@@ -572,6 +580,7 @@ function updateCameraFrustum() {
   postMat.uniforms.thr2.value = postMat.uniforms.thr.value * 2 + 0.9;
 }
 function renderFrame() {
+  updateSceneText();
   renderer.setRenderTarget(RT);
   renderer.render(scene, camera);
   renderer.setRenderTarget(null);
@@ -629,16 +638,252 @@ function pixText(g, str, x, y, color, s = 1) {
   }
 }
 const textW = (str, s = 1) => str.length * 4 * s - s;
-// CJK text for signs: drawn with the system CJK font, then hard-thresholded so it stays pixel-crisp
-function cjkText(g, str, cx, y, px, color, weight = 700) {
-  const c = document.createElement('canvas'); c.width = Math.ceil(px * str.length * 1.2 + 8); c.height = Math.ceil(px * 1.4);
-  const t = c.getContext('2d');
-  t.font = `${weight} ${px}px "PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC","Noto Sans SC",sans-serif`;
-  t.textBaseline = 'top'; t.fillStyle = '#fff'; t.fillText(str, 2, 1);
-  const w = Math.min(c.width, Math.ceil(t.measureText(str).width) + 4), d = t.getImageData(0, 0, c.width, c.height).data;
-  g.fillStyle = color; const x0 = Math.round(cx - w / 2);
-  for (let j = 0; j < c.height; j++) for (let i = 0; i < w; i++) if (d[(j * c.width + i) * 4 + 3] > 110) g.fillRect(x0 + i, y + j, 1, 1);
+
+/* =====================================================================
+   场景文字 SCENE TEXT  (2026-11-03, stage 3 of the hi-res plan)
+   Bitmap glyphs from Fusion Pixel Font 2026.10.25 — Copyright (c) 2022, TakWolf (https://takwolf.com), licensed under
+   the SIL Open Font License 1.1 (https://openfontlicense.org; https://github.com/TakWolf/fusion-pixel-font),
+   8 / 10 / 12 px zh_hans proportional. build.py rasterises only the characters the scene draws (1-bit, no
+   anti-aliasing) into FPX below. Every in-scene sign is an "adaptive" texture: each frame we measure how many art
+   pixels the sign covers on screen, size its canvas to that (never larger, so nearest sampling never drops a row or
+   a column of a glyph), and draw the richest layout that fits — scaled by a whole number when there is room.
+   ===================================================================== */
+const FPX = {"8":{"a":9,"d":3,"g":{" ":[5,0,0,0,0],"-":[4,3,1,0,2,7],".":[4,1,1,1,0,1],"0":[5,4,6,0,0,6,9,11,13,9,6],"1":[5,3,6,1,0,2,6,2,2,2,7],"2":[5,4,6,0,0,6,9,1,6,8,15],"3":[5,4,6,0,0,6,9,2,1,9,6],"4":[5,4,6,0,0,2,6,10,10,15,2],"5":[5,4,6,0,0,15,8,14,1,1,14],"6":[5,4,6,0,0,6,8,14,9,9,6],"7":[5,4,6,0,0,15,1,2,2,4,4],"8":[5,4,6,0,0,6,9,6,9,9,6],"9":[5,4,6,0,0,6,9,9,7,1,6],":":[4,1,4,1,0,1,0,0,1],"A":[5,4,6,0,0,6,9,9,15,9,9],"B":[5,4,6,0,0,14,9,14,9,9,14],"C":[5,4,6,0,0,7,8,8,8,8,7],"D":[5,4,6,0,0,14,9,9,9,9,14],"E":[5,4,6,0,0,15,8,14,8,8,15],"F":[5,4,6,0,0,15,8,14,8,8,8],"G":[5,4,6,0,0,7,8,8,11,9,7],"H":[5,4,6,0,0,9,9,15,9,9,9],"I":[4,3,6,0,0,7,2,2,2,2,7],"J":[5,4,6,0,0,1,1,1,1,9,6],"K":[5,4,6,0,0,9,10,12,10,9,9],"L":[4,3,6,0,0,4,4,4,4,4,7],"M":[6,5,6,0,0,17,27,27,21,21,21],"N":[5,4,6,0,0,9,13,11,9,9,9],"O":[5,4,6,0,0,6,9,9,9,9,6],"P":[5,4,6,0,0,14,9,9,14,8,8],"Q":[5,4,7,0,-1,6,9,9,9,9,6,1],"R":[5,4,6,0,0,14,9,9,14,9,9],"S":[5,4,6,0,0,7,8,6,1,1,14],"T":[6,5,6,0,0,31,4,4,4,4,4],"U":[5,4,6,0,0,9,9,9,9,9,6],"V":[5,4,6,0,0,9,9,9,10,10,12],"W":[6,5,6,0,0,21,21,21,21,10,10],"X":[5,4,6,0,0,9,9,6,9,9,9],"Y":[6,5,6,0,0,17,10,10,4,4,4],"Z":[5,4,6,0,0,15,1,2,4,8,15],"o":[4,3,4,0,0,2,5,5,2],"卖":[8,7,7,0,-1,62,8,127,37,127,8,115],"头":[8,7,7,0,-1,36,20,36,20,127,8,115],"学":[8,7,7,0,-1,42,127,93,4,127,8,24],"小":[8,7,7,0,-1,8,8,42,41,73,8,24],"彗":[8,7,7,0,-1,34,119,34,127,62,2,62],"星":[8,7,7,0,-1,62,34,63,40,94,8,127],"校":[8,7,7,0,-1,36,127,42,113,106,36,59],"水":[8,7,7,0,-1,8,9,122,28,42,73,24],"狐":[8,7,7,0,-1,81,46,106,42,106,43,85],"狸":[8,7,7,0,-1,95,53,127,53,127,36,95],"猫":[8,7,7,0,-1,74,63,106,63,127,53,95],"獭":[8,7,7,0,-1,78,58,127,61,111,58,77],"第":[8,7,7,0,-1,36,55,90,62,40,31,105],"部":[8,7,7,0,-1,23,125,46,125,61,46,60],"鹰":[8,7,7,0,-1,4,63,54,55,47,33,93]}},"10":{"a":11,"d":3,"g":{" ":[5,0,0,0,0],"-":[6,5,1,0,2,31],".":[4,1,1,1,0,1],"0":[5,4,7,0,0,6,9,11,13,9,9,6],"1":[5,3,7,1,0,2,6,2,2,2,2,7],"2":[5,4,7,0,0,6,9,1,2,4,8,15],"3":[5,4,7,0,0,6,9,1,2,1,9,6],"4":[5,4,7,0,0,3,5,5,9,9,15,1],"5":[5,4,7,0,0,15,8,8,14,1,1,14],"6":[5,4,7,0,0,6,9,8,14,9,9,6],"7":[5,4,7,0,0,15,1,1,2,2,4,4],"8":[5,4,7,0,0,6,9,9,6,9,9,6],"9":[5,4,7,0,0,6,9,9,7,1,9,6],":":[4,1,5,1,0,1,0,0,0,1],"A":[6,5,7,0,0,4,4,10,10,14,17,17],"B":[6,5,7,0,0,30,17,17,30,17,17,30],"C":[6,5,7,0,0,14,17,16,16,16,17,14],"D":[6,5,7,0,0,30,17,17,17,17,17,30],"E":[6,5,7,0,0,31,16,16,30,16,16,31],"F":[6,5,7,0,0,31,16,16,30,16,16,16],"G":[6,5,7,0,0,14,17,16,16,19,17,15],"H":[6,5,7,0,0,17,17,17,31,17,17,17],"I":[4,3,7,0,0,7,2,2,2,2,2,7],"J":[5,4,7,0,0,1,1,1,1,9,9,6],"K":[6,5,7,0,0,17,18,20,24,20,18,17],"L":[5,4,7,0,0,8,8,8,8,8,8,15],"M":[8,7,7,0,0,65,99,99,85,85,73,73],"N":[6,5,7,0,0,17,25,25,21,19,19,17],"O":[6,5,7,0,0,14,17,17,17,17,17,14],"P":[6,5,7,0,0,30,17,17,30,16,16,16],"Q":[6,5,7,0,0,14,17,17,17,21,18,13],"R":[6,5,7,0,0,30,17,17,30,18,17,17],"S":[6,5,7,0,0,14,17,16,14,1,17,14],"T":[6,5,7,0,0,31,4,4,4,4,4,4],"U":[6,5,7,0,0,17,17,17,17,17,17,14],"V":[6,5,7,0,0,17,17,10,10,10,4,4],"W":[8,7,7,0,0,73,73,73,85,85,34,34],"X":[6,5,7,0,0,17,17,10,4,10,17,17],"Y":[6,5,7,0,0,17,17,10,10,4,4,4],"Z":[6,5,7,0,0,31,1,2,4,8,16,31],"o":[5,4,5,0,0,6,9,9,9,6],"卖":[10,9,9,0,-1,16,254,16,511,169,72,511,20,483],"头":[10,9,9,0,-1,72,40,136,72,16,511,36,66,385],"学":[10,9,9,0,-1,146,511,257,381,8,511,16,16,112],"小":[10,9,9,0,-1,16,16,146,146,145,273,273,16,48],"彗":[10,9,9,0,-1,68,495,68,511,68,2,511,2,254],"星":[10,9,9,0,-1,254,130,254,130,254,272,254,16,511],"校":[10,9,9,0,-1,68,95,490,81,202,234,324,74,81],"水":[10,9,9,0,-1,16,17,466,84,84,146,145,273,48],"狐":[10,9,9,0,-1,127,338,146,338,82,210,341,125,385],"狸":[10,9,9,0,-1,351,149,351,85,223,324,95,68,447],"猫":[10,9,9,0,-1,74,383,138,351,85,223,341,85,415],"獭":[10,9,9,0,-1,83,381,146,383,85,253,338,125,405],"第":[10,9,9,0,-1,136,239,338,254,144,255,49,81,406],"部":[10,9,9,0,-1,71,509,149,150,509,5,501,278,500],"鹰":[10,9,9,0,-1,511,298,351,458,383,324,383,1,507]}},"12":{"a":13,"d":3,"g":{" ":[6,0,0,0,0],"-":[6,5,1,0,3,31],".":[4,1,1,1,0,1],"0":[6,5,9,0,0,14,17,17,19,21,25,17,17,14],"1":[6,3,9,1,0,2,6,2,2,2,2,2,2,7],"2":[6,5,9,0,0,14,17,1,1,2,4,8,16,31],"3":[6,5,9,0,0,14,17,1,1,6,1,1,17,14],"4":[6,5,9,0,0,2,6,6,10,10,18,31,2,2],"5":[6,5,9,0,0,31,16,16,16,30,1,1,17,14],"6":[6,5,9,0,0,14,17,16,16,30,17,17,17,14],"7":[6,5,9,0,0,31,1,1,2,2,4,4,4,4],"8":[6,5,9,0,0,14,17,17,17,14,17,17,17,14],"9":[6,5,9,0,0,14,17,17,17,15,1,1,17,14],":":[4,1,6,1,0,1,0,0,0,0,1],"A":[8,7,9,0,0,8,8,20,20,34,62,34,65,65],"B":[7,6,9,0,0,62,33,33,33,62,33,33,33,62],"C":[7,6,9,0,0,14,17,32,32,32,32,32,17,14],"D":[7,6,9,0,0,60,34,33,33,33,33,33,34,60],"E":[7,6,9,0,0,63,32,32,32,62,32,32,32,63],"F":[7,6,9,0,0,63,32,32,32,62,32,32,32,32],"G":[7,6,9,0,0,14,17,32,32,32,35,33,17,15],"H":[7,6,9,0,0,33,33,33,33,63,33,33,33,33],"I":[4,3,9,0,0,7,2,2,2,2,2,2,2,7],"J":[6,5,9,0,0,1,1,1,1,1,1,17,17,14],"K":[7,6,9,0,0,33,34,36,40,48,40,36,34,33],"L":[6,5,9,0,0,16,16,16,16,16,16,16,16,31],"M":[8,7,9,0,0,65,65,99,99,85,85,73,73,73],"N":[7,6,9,0,0,33,49,41,41,37,37,35,35,33],"O":[8,7,9,0,0,28,34,65,65,65,65,65,34,28],"P":[7,6,9,0,0,62,33,33,33,62,32,32,32,32],"Q":[8,7,9,0,0,28,34,65,65,65,65,69,34,29],"R":[7,6,9,0,0,62,33,33,33,62,36,34,34,33],"S":[7,6,9,0,0,30,33,32,16,12,2,1,33,30],"T":[8,7,9,0,0,127,8,8,8,8,8,8,8,8],"U":[7,6,9,0,0,33,33,33,33,33,33,33,33,30],"V":[8,7,9,0,0,65,65,34,34,34,20,20,8,8],"W":[10,9,9,0,0,273,273,273,170,170,170,68,68,68],"X":[8,7,9,0,0,65,34,34,20,8,20,34,34,65],"Y":[8,7,9,0,0,65,34,34,20,20,8,8,8,8],"Z":[7,6,9,0,0,63,1,2,4,8,8,16,32,63],"o":[6,5,6,0,0,14,17,17,17,17,14],"卖":[12,11,11,0,-1,32,1022,32,2047,145,594,272,2047,40,196,1795],"头":[12,11,11,0,-1,272,144,528,272,16,2047,32,40,68,386,1537],"学":[12,11,11,0,-1,578,292,2047,1025,1533,8,48,2047,32,32,224],"小":[12,11,11,0,-1,32,32,32,292,290,546,545,1057,32,32,224],"彗":[12,11,11,0,-1,260,2015,260,2015,260,0,1022,2,1022,2,1022],"星":[12,11,11,0,-1,1022,514,1022,514,1022,544,1022,1056,1022,32,2047],"校":[12,11,11,0,-1,264,383,1920,290,321,802,930,1300,264,276,355],"水":[12,11,11,0,-1,32,32,33,1970,180,168,296,292,546,1057,224],"狐":[12,11,11,0,-1,1287,634,586,1354,330,330,842,1354,338,341,1723],"狸":[12,11,11,0,-1,1407,585,585,1407,329,329,895,1288,383,264,1663],"猫":[12,11,11,0,-1,1314,639,546,1280,383,329,841,1407,329,329,1663],"獭":[12,11,11,0,-1,1352,750,594,1535,337,341,1013,1365,452,362,1617],"第":[12,11,11,0,-1,528,991,1188,1022,34,1022,544,1023,161,289,1574],"部":[12,11,11,0,-1,143,1001,9,554,330,2041,9,1001,558,552,1000],"鹰":[12,11,11,0,-1,16,1023,596,703,932,703,594,639,513,765,1027]}}};
+// lay a string out in font px: glyph placements + ink bounds (cell coordinates, y down from the cell top)
+function fpRun(str, px, tab) {
+  const F = FPX[px], out = []; let x = 0, x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+  const dAdv = tab ? Math.max(...'0123456789'.split('').map(c => F.g[c][0])) : 0;
+  for (const ch of str) {
+    const gl = F.g[ch] || F.g[' ']; if (!gl) continue;
+    const [adv, w, h, xo, yo] = gl, isD = tab && ch >= '0' && ch <= '9', a = isD ? dAdv : adv, sh = isD ? Math.floor((dAdv - adv) / 2) : 0;
+    const gx = x + sh + xo, gy = F.a - (yo + h);
+    out.push([gl, gx, gy, ch.charCodeAt(0) < 128]);
+    for (let j = 0; j < h; j++) { const v = gl[5 + j]; if (!v) continue;
+      for (let i = 0; i < w; i++) if (v >> (w - 1 - i) & 1) { x0 = Math.min(x0, gx + i); x1 = Math.max(x1, gx + i); y0 = Math.min(y0, gy + j); y1 = Math.max(y1, gy + j); } }
+    x += a;
+  }
+  if (x1 < x0) { x0 = 0; x1 = -1; y0 = 0; y1 = -1; }
+  return { out, x0, y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
 }
+const fpInk = (str, px, tab) => { const r = fpRun(str, px, tab); return [r.w, r.h]; };
+// glyph mode anchors: each Chinese glyph on its own, runs of Latin / digits together ("12" in 第12学校 stays one unit)
+function fpAnchors(r) {
+  const a = r.out.map(([gl, gx]) => [gx - r.x0, gx - r.x0 + gl[1]]);
+  for (let k = 0; k < a.length; k++) if (r.out[k][3]) { let e = k; while (e + 1 < a.length && r.out[e + 1][3] && r.out[e + 1][0][1]) e++;
+    const lo = a[k][0], hi = a[e][1]; for (let q = k; q <= e; q++) a[q] = [lo, hi]; k = e; }
+  return a.map(([lo, hi]) => (lo + hi) / 2);
+}
+// Signs sit on walls seen at an angle, so a texture row runs across the screen as a staircase and small glyphs break
+// up. Each sign's texture is sized so one texel is one screen (art) pixel, and FP_SKEW (the slant and sub-pixel phase
+// measured for that sign this frame) lifts every glyph column by exactly the rows the slant will drop it: the glyph
+// stands upright and unbroken on screen, while the line of glyphs still follows the wall.
+// Short Latin/digit strings (score, clock, team codes) stand upright as a whole word; Chinese and long strings stand
+// upright glyph by glyph, their baseline stepping with the wall (the usual way pixel art letters a slanted sign).
+const ST_MODE = Q.get('stmode') || 'auto';   // test switch: auto | glyph | word | shear (plain texture, no correction)
+let FP_SKEW = null, ST_SL = 0, ST_SLS = 0;   // ST_SL / ST_SLS: |slant| / signed slant (screen rows per column) of the sign being drawn
+const fpMode = (str, mode) => ST_MODE === 'glyph' || ST_MODE === 'word' ? ST_MODE : mode || (/[^\x00-\x7f]/.test(str) || str.length > 6 ? 'glyph' : 'word');
+// rows an upright string needs beyond its ink height on this sign
+const fpLiftRows = (str, px, s = 1, tab = false) => { if (!ST_SL) return 0; const [w] = fpInk(str, px, tab);
+  return fpMode(str) === 'word' ? Math.ceil(ST_SL * w * s) : Math.floor(ST_SL * (Math.min(w, px) - 1) * s); };
+   // { ax, ay: sign's top-left on screen, sx / rv: screen px per texel across / down, sl: slant (rows per screen column), ox, oy, S: content -> texture }
+// draw so the ink's top-left corner lands on (x, y); s = whole-number scale. Returns the ink width.
+function fpPut(g, str, x, y, color, px, s = 1, tab = false, mode) {
+  const r = fpRun(str, px, tab); g.fillStyle = color;
+  const K = FP_SKEW;
+  if (!K) {
+    for (const [gl, gx, gy] of r.out) { const w = gl[1], h = gl[2];
+      for (let j = 0; j < h; j++) { const v = gl[5 + j]; if (!v) continue;
+        for (let i = 0; i < w; i++) if (v >> (w - 1 - i) & 1) g.fillRect(x + (gx - r.x0 + i) * s, y + (gy - r.y0 + j) * s, s, s); } }
+    return r.w * s;
+  }
+  // exact path, worked out in screen pixels. The texture holds 2x2 texels per screen pixel and is pinned so every
+  // pixel centre sits on a texel corner (see alignTex); for each glyph pixel we pick the screen pixel it must light and
+  // fill the 2x2 texels around that pixel's sampling point, so whichever of them the GPU picks, the pixel lights —
+  // and no neighbouring pixel's sampling point is touched.
+  g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
+  const word = fpMode(str, mode) === 'word', anc = fpAnchors(r); let gi = -1;
+  const m = s * K.S, fx0 = Math.floor(K.ax), xp = u => u + fx0, U = c => c - fx0;
+  const top = c => K.ay + K.sl * (c + 0.5 - K.ax);   // the sign's top edge in screen column c
+  const xs = xp(K.ox + x * K.S);   // screen column of the string's first ink column
+  for (const [gl, gx, gy] of r.out) { const w = gl[1], h = gl[2]; gi++;
+    const T0 = K.oy + (y + (gy - r.y0) * s) * K.S, c0 = xs + (gx - r.x0) * m;
+    const cc = xs + Math.floor((word ? r.w / 2 : anc[gi]) * m);   // word / glyph centre column: its top lands where the plain texture would put it
+    const Ys = Math.floor(top(cc) + T0);
+    for (let i = 0; i < w; i++) for (let q = 0; q < m; q++) { const c = c0 + i * m + q, u = U(c), tc = top(c);
+      for (let j = 0; j < h; j++) if (gl[5 + j] >> (w - 1 - i) & 1)
+        for (let e = 0; e < m; e++) g.fillRect(2 * u, Math.floor(2 * (Ys + j * m + e + 0.5 - tc) - 0.5), 2, 2);
+    } }
+  g.restore();
+  return r.w * s;
+}
+const fpMid = (g, str, cx, y, color, px, s = 1, tab = false) => fpPut(g, str, Math.round(cx - fpInk(str, px, tab)[0] * s / 2), y, color, px, s, tab);
+// the farthest scoreboard layout keeps the old 3x5 digits (from FONT), registered as pseudo-size 3
+FPX[3] = { a: 5, d: 0, g: {} };
+for (const ch of '0123456789-: ') { const b = FONT[ch], rows = []; for (let j = 0; j < 5; j++) rows.push(parseInt(b.slice(j * 3, j * 3 + 3), 2)); FPX[3].g[ch] = [4, 3, 5, 0, 0, ...rows]; }
+
+const SCENE_TEXT = [];
+const _stv = new THREE.Vector3();
+function _stProj(m, x, y) { _stv.set(x, y, 0).applyMatrix4(m.matrixWorld).project(camera); return [(_stv.x + 1) / 2 * RW, (1 - _stv.y) / 2 * RH]; }
+// mesh: a PlaneGeometry(wM, hM) mesh. layouts: richest first, each { size() -> [w, h] in art px at scale 1,
+// draw(g, w, h) at scale 1 }. frame(g, W, H, s): optional full-texture decoration under the content.
+function sceneText(mesh, wM, hM, mats, layouts, opt = {}) {
+  const o = { mesh, wM, hM, mats, layouts, bg: opt.bg, frame: opt.frame, scale: opt.scale !== false, W: 0, H: 0, lay: -1, s: 0, dirty: true, tex: null, avail: [0, 0] };
+  SCENE_TEXT.push(o); return o;
+}
+// pin a sign texture to the screen's pixel grid: 2x2 texels per screen pixel, pixel centres on texel corners across,
+// rows counted from the sign's top edge
+function alignTex(t, a, cols, rows) {
+  if (!t) return; const W = t.image.width, H = t.image.height;
+  t.repeat.set(2 * cols / W, 2 * rows / H); t.offset.set(2 * (a[0] - Math.floor(a[0])) / W, 1 - 2 * rows / H);
+}
+function updateSceneText() {
+  camera.updateMatrixWorld();
+  for (const o of SCENE_TEXT) {
+    const m = o.mesh; if (!m.parent) continue;
+    m.updateWorldMatrix(true, false);
+    const a = _stProj(m, -o.wM / 2, o.hM / 2), b = _stProj(m, o.wM / 2, o.hM / 2), c = _stProj(m, -o.wM / 2, -o.hM / 2);
+    // texels across = screen columns the top edge spans; texels down = screen rows along a vertical edge
+    const cols = Math.abs(b[0] - a[0]), rows = Math.abs(c[1] - a[1]);
+    o.avail = [cols, rows]; o.corners = [a, b, c];
+    // one texel per screen pixel each way (the texture's aspect follows the screen, not the plane)
+    const W = Math.max(4, Math.min(512, Math.ceil(cols))), H = Math.max(3, Math.min(256, Math.ceil(rows)));
+    const fr = v => Math.round(((v % 1) + 1) % 1 * 1000) / 1000 % 1;   // sampling phase; a pixel-snapped pan keeps it, so no redraw
+    const sl = Math.round((b[1] - a[1]) / W * 4096) / 4096, ph = fr(0.5 - a[1]), fx = fr(0.5 - a[0]);
+    if (W === o.W && H === o.H && sl === o.sl && ph === o.ph && fx === o.fx && !o.dirty) { alignTex(o.tex, a, cols, rows); continue; }
+    o.dirty = false; o.W = W; o.H = H; o.sl = sl; o.ph = ph; o.fx = fx;
+    ST_SLS = ST_MODE === 'shear' ? 0 : (b[1] - a[1]) / cols; ST_SL = Math.abs(ST_SLS);
+    const sz = L => L.size();
+    o.sizes = o.layouts.map(L => sz(L).map(v => Math.min(v, 9999)));
+    let li = o.layouts.findIndex(L => { const [w, h] = sz(L); return w <= W && h <= H; });
+    if (li < 0) li = o.layouts.length - 1;
+    const L = o.layouts[li], [bw, bh] = sz(L);
+    const s = o.scale && bw > 0 && bh > 0 ? Math.max(1, Math.min(Math.floor(W / bw), Math.floor(H / bh))) : 1;
+    o.lay = li; o.s = s;
+    const tex = canvasTex(2 * W, 2 * H, g => {
+      g.scale(2, 2);   // layouts and decorations work in screen pixels; the texture has 2x2 texels per pixel
+      g.fillStyle = HEX(o.bg); g.fillRect(0, 0, W, H);
+      if (o.frame) o.frame(g, W, H, s);
+      if (bw < 1 || bh < 1) return;
+      // content spans the whole texture at scale s, so right-aligned / centred parts use the full width
+      // a layout marked `fill` spreads over the whole height too (bigger clock when there is room)
+      const cw = Math.max(bw, Math.floor(W / s)), chh = L.fill ? Math.max(bh, Math.floor(H / s)) : bh;
+      const ox = Math.floor((W - cw * s) / 2), oy = Math.floor((H - chh * s) / 2);
+      if (ST_MODE !== 'shear') FP_SKEW = { ax: a[0], ay: a[1], sl: (b[1] - a[1]) / cols, ox, oy, S: s };
+      g.save(); g.translate(ox, oy); g.scale(s, s); L.draw(g, cw, chh); g.restore();
+    });
+    FP_SKEW = null;
+    for (const [mt, keys] of o.mats) { for (const key of keys) mt[key] = tex; mt.needsUpdate = true; }
+    alignTex(tex, a, cols, rows);
+    if (o.tex) o.tex.dispose(); o.tex = tex;
+  }
+}
+// A layout is a stack of rows, each row one or more strings (or a decoration strip). Heights include the rows the
+// upright text needs on this sign's slant, so the chooser only picks a layout whose text really fits.
+// row: { items: [{ t, px, c, s, tab, al: 'l' | 'r' | (centred group) }] } or { deco(g, w, y), h }
+function stackLayout(rowsFn, opt = {}) {
+  const m = opt.m ?? 1, gap = opt.gap ?? 1, padX = opt.padX || 0;
+  // Upright text leaves the wall's rows: a column X of a string anchored at column c sits ST_SLS*(c - X) rows off its
+  // nominal row. Each row gets a per-column profile of where its ink really lands, and rows are packed as tightly as
+  // those profiles allow (upright words stacked on one centre stay parallel and pack close; text meeting the wall-
+  // following edges or strips needs the slant's worth of room).
+  const place = (w) => {
+    const rows = rowsFn().map(R => {
+      if (!R.items) return { R, h: R.h, w: 0 };
+      let tw = 0, ih = 0;
+      for (const it of R.items) { const s = it.s || 1, [iw, hh] = fpInk(it.t, it.px, it.tab); it._w = iw * s; it._h = hh * s; tw += it._w; ih = Math.max(ih, it._h); }
+      return { R, h: ih, w: tw + (R.items.length - 1) * 4 };
+    });
+    const W = w ?? Math.max(opt.minW || 0, ...rows.map(r => r.w)) + 2 * (m + padX);
+    const prof = rows.map(r => {
+      const top = new Float32Array(W).fill(NaN), bot = new Float32Array(W).fill(NaN);
+      if (!r.R.items) { top.fill(0); bot.fill(r.h); return { top, bot }; }
+      const its = r.R.items, grp = its.filter(it => !it.al), gw = grp.reduce((a, it) => a + it._w, 0) + Math.max(0, grp.length - 1) * 4;
+      let gx = Math.floor((W - gw) / 2);
+      for (const it of its) {
+        it._x = it.al === 'l' ? m + padX : it.al === 'r' ? W - m - padX - it._w : gx; if (!it.al) gx += it._w + 4;
+        it._y = Math.floor((r.h - it._h) / 2);
+        // anchor column of every ink column: the word's centre, or (Chinese / long strings) its own glyph's centre
+        const sc = it.s || 1, word = fpMode(it.t, it.mode) === 'word', run = fpRun(it.t, it.px, it.tab), anc = new Float32Array(it._w).fill(word ? it._w / 2 : NaN);
+        if (!word) { const A = fpAnchors(run); run.out.forEach(([gl, gx], k) => { const g0 = (gx - run.x0) * sc, gw = gl[1] * sc; for (let q = Math.max(0, g0); q < Math.min(it._w, g0 + gw); q++) anc[q] = A[k] * sc; }); }
+        for (let X = Math.max(0, it._x); X < Math.min(W, it._x + it._w); X++) {
+          if (isNaN(anc[X - it._x])) continue;
+          const off = ST_SLS * (anc[X - it._x] - (X - it._x) - 0.5);
+          top[X] = isNaN(top[X]) ? it._y + off : Math.min(top[X], it._y + off);
+          bot[X] = isNaN(bot[X]) ? it._y + it._h + off : Math.max(bot[X], it._y + it._h + off);
+        }
+      }
+      return { top, bot };
+    });
+    const ys = []; let prev = null;
+    rows.forEach((r, k) => {
+      const P = prof[k]; let y = -1e9;
+      for (let X = 0; X < W; X++) if (!isNaN(P.top[X])) y = Math.max(y, (prev ? -1e9 : m) - P.top[X]);
+      if (prev) { for (let X = 0; X < W; X++) if (!isNaN(P.top[X])) for (let d = -2; d <= 2; d++) { const b = prev.P.bot[X + d];   // keep 2 columns clear sideways too
+          if (b !== undefined && !isNaN(b)) y = Math.max(y, prev.y + b + gap - P.top[X]); }
+        y = Math.max(y, prev.y + 1); }
+      y = Math.round(y); ys.push(y); prev = { y, P };
+    });
+    let need = 0; rows.forEach((r, k) => { for (let X = 0; X < W; X++) if (!isNaN(prof[k].bot[X])) need = Math.max(need, ys[k] + prof[k].bot[X]); });
+    return { rows, ys, W, need: Math.round(need) + m };
+  };
+  return {
+    fill: opt.fill,
+    size() { if (opt.need && !opt.need()) return [1e9, 1e9]; const p = place(); return [p.W, p.need]; },
+    draw(g, w, h) { const { rows, ys, need } = place(w), n = rows.length;
+      const ex = h - need, sp = opt.fill ? Math.floor(Math.max(0, ex) / (n + 1)) : 0, y0 = opt.fill ? 0 : Math.floor(ex / 2);
+      if (opt.deco) opt.deco(g, w, h);
+      rows.forEach((r, k) => { const y = ys[k] + y0 + sp * (k + 1);
+        if (!r.R.items) r.R.deco(g, w, y);
+        else for (const it of r.R.items) fpPut(g, it.t, it._x, y + it._y, HEX(it.c), it.px, it.s || 1, it.tab, it.mode);
+      });
+    },
+  };
+}
+const lineLayout = (str, px, color, m = 1, mode) => stackLayout(() => [{ items: [{ t: str, px, c: color, mode }] }], { m });
+
+// ---- scoreboard: 12 px Chinese team names · 10 px team codes · 8 px score + clock · 8 px score · 3x5 score
+function sbData() {
+  const H = MATCH.home, A = MATCH.away;
+  if (!H) return { sc: '0-0', clock: '00:00', ph: '--', hid: '', aid: '', hcn: '', acn: '', hc: 'white', ac: 'white', hf: 0, af: 0 };
+  const cl = Math.min(CFG.HALF, MATCH.clock), mm = String(Math.floor(cl / 60)).padStart(2, '0'), ss = String(Math.floor(cl % 60)).padStart(2, '0');
+  const st = MATCH.state, ph = st === 'halftime' ? 'HT' : st === 'fulltime' || st === 'handshake' || st === 'walkin' || st === 'post' ? 'FT' : st === 'play' || st === 'goal' ? (MATCH.half === 1 ? 'H1' : 'H2') : '--';
+  const tc = k => (k === 'ink' ? 'lgrey' : k);
+  return { sc: `${H.score}-${A.score}`, clock: `${mm}:${ss}`, ph, hid: H.club.id, aid: A.club.id, hcn: H.club.short, acn: A.club.short, hc: tc(H.club.shirt), ac: tc(A.club.shirt), hf: H.fouls, af: A.fouls };
+}
+const sbFoulRow = (sz, step) => ({ h: sz, deco(g, w, y) { const d = sbData();
+  for (const [n, x0, dir] of [[d.hf, 2, 1], [d.af, w - 2 - sz, -1]])
+    for (let i = 0; i < 5; i++) { g.fillStyle = i < n ? (n >= 5 ? HEX('crimson') : HEX('yellow')) : HEX('navy'); g.fillRect(x0 + dir * i * step, y, sz, sz); } } });
+const sbChips = (g, w, h) => { const d = sbData(); g.fillStyle = HEX(d.hc); g.fillRect(0, 1, 2, h - 2); g.fillStyle = HEX(d.ac); g.fillRect(w - 2, 1, 2, h - 2); };
+const SB_LAYOUTS = [
+  ...[4, 3, 2].map(t => stackLayout(() => { const d = sbData(); return [
+    { items: [{ t: d.hcn, px: 12, c: d.hc, al: 'l', mode: 'word' }, { t: d.sc, px: 12, c: 'white', tab: true }, { t: d.acn, px: 12, c: d.ac, al: 'r', mode: 'word' }] },
+    { items: [{ t: d.clock, px: 12, c: 'warm', s: t, tab: true }] },
+    { items: [{ t: d.ph, px: 10, c: 'white' }] }, sbFoulRow(3, 5)]; }, { fill: true, m: 2, gap: 3, need: () => !!sbData().hcn })),
+  ...[2, 1].map(t => stackLayout(() => { const d = sbData(); return [
+    { items: [{ t: d.hid, px: 10, c: d.hc, al: 'l' }, { t: d.sc, px: 10, c: 'white', tab: true }, { t: d.aid, px: 10, c: d.ac, al: 'r' }] },
+    { items: [{ t: d.clock, px: 10, c: 'warm', s: t, tab: true }] },
+    { items: [{ t: d.ph, px: 8, c: 'white' }] }, sbFoulRow(2, 3)]; }, { fill: true, m: 1, gap: 2, need: () => !!sbData().hid })),
+  stackLayout(() => { const d = sbData(); return [{ items: [{ t: d.sc, px: 8, c: 'white', tab: true }] }, { items: [{ t: d.clock, px: 8, c: 'warm', tab: true }] }]; }, { fill: true, m: 0, padX: 3, deco: sbChips }),
+  stackLayout(() => [{ items: [{ t: sbData().sc, px: 8, c: 'white', tab: true }] }], { m: 0, padX: 3, deco: sbChips }),
+  stackLayout(() => [{ items: [{ t: sbData().sc, px: 3, c: 'white' }] }], { m: 1 }),
+];
+// school sign: 第12学校 (12 px) over SCHOOL No.12 (8 px) · 10 px name · No.12 · 12
+const SIGN_LAYOUTS = [
+  ...['word', 'glyph'].map(md => stackLayout(() => [{ items: [{ t: '第12学校', px: 12, c: 'white', mode: md }] }, { items: [{ t: 'SCHOOL', px: 8, c: 'skyL', mode: 'word' }, { t: 'NO.12', px: 8, c: 'skyL', mode: 'word' }] }], { m: 2, gap: 2 })),
+  ...[12, 10].flatMap(px => ['word', 'glyph'].map(md => lineLayout('第12学校', px, 'white', px === 12 ? 1 : 0, md))),
+  lineLayout('NO.12', 8, 'white', 0),
+  lineLayout('12', 8, 'white', 0),
+];
+const signFrame = (g, W, H, s) => { g.fillStyle = HEX('yellow'); g.fillRect(0, 0, W, s); g.fillRect(0, H - s, W, s); };
+// snack stand: 小卖部 (12 / 10 px), then a popsicle + drink icon
+const SNACK_LAYOUTS = [
+  ...[12, 10].flatMap(px => ['word', 'glyph'].map(md => lineLayout('小卖部', px, 'ink', px === 12 ? 1 : 0, md))),
+  { size() { return [12, 6]; },
+    draw(g, w, h) { const x = Math.floor((w - 12) / 2), y = Math.floor((h - 6) / 2);
+      g.fillStyle = HEX('crimson'); g.fillRect(x + 1, y, 3, 4); g.fillStyle = HEX('tan'); g.fillRect(x + 2, y + 4, 1, 2);
+      g.fillStyle = HEX('skyL'); g.fillRect(x + 7, y + 1, 4, 1); g.fillStyle = HEX('blue'); g.fillRect(x + 7, y + 2, 4, 3); g.fillRect(x + 8, y + 5, 2, 1); g.fillStyle = HEX('ink'); g.fillRect(x + 9, y, 1, 1); } },
+  { size() { return [0, 0]; }, draw() { } },
+];
 
 // ---- lights
 const hemi = new THREE.HemisphereLight(0xffffff, 0x445533, 1.2); scene.add(hemi);
@@ -720,7 +965,8 @@ function islandEdge(t, s = 1) {
 // ---- court plane (texture comes from SURFACES)
 const MB_URL = Q.get('mb') != null && Q.get('mb') !== '' ? +Q.get('mb') : null;   // ?mb= test override of the tier's court LOD bias
 const COURT_BIAS = { value: 0 }; QUAL.register(T => { COURT_BIAS.value = MB_URL ?? T.mb; });
-const courtMat = mapBias(new THREE.MeshLambertMaterial({ color: 0xffffff }), COURT_BIAS);
+const COURT_PROBE = { value: Q.get('probe') === '0' ? 0 : 1 };   // ?probe=0: test switch for the line-keeping probes
+const courtMat = mapBias(new THREE.MeshLambertMaterial({ color: 0xffffff }), COURT_BIAS, COURT_PROBE);
 {
   const g = new THREE.PlaneGeometry(CFG.FX * 2, CFG.FZ * 2); g.rotateX(-Math.PI / 2);
   const m = new THREE.Mesh(g, courtMat); m.position.y = 0.02; m.receiveShadow = CFG.shadows; scene.add(m);
@@ -735,7 +981,7 @@ const SX = -29;
 const school = new THREE.Group(); scene.add(school); SIDES.xm.objs.push(school);
 const windowMat = new THREE.MeshLambertMaterial({ color: HEX('navy'), emissive: 0x000000 });
 const lampMat = new THREE.MeshLambertMaterial({ color: HEX('lgrey'), emissive: 0x000000 });
-let scoreboardTex, clockHands = {}, flagGeo, flagBase;
+let SB_TEXT, clockHands = {}, flagGeo, flagBase;
 {
   const brickMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
   QUAL.register(T => {
@@ -773,18 +1019,16 @@ let scoreboardTex, clockHands = {}, flagGeo, flagBase;
   bx(0.16, 2.4, 1.9, 'crimsonD', SX + 0.06, 0.3, 0, school, false);
   bx(0.2, 0.1, 0.1, 'yellow', SX + 0.16, 1.5, 0.6, school, false);
   // sign
-  const signTex = canvasTex(96, 26, (g, w, h) => {
-    g.fillStyle = HEX('navy'); g.fillRect(0, 0, w, h); g.fillStyle = HEX('yellow'); g.fillRect(0, 0, w, 1); g.fillRect(0, h - 1, w, 1);
-    cjkText(g, '第12学校', w / 2, 1, 15, HEX('white'));
-    pixText(g, 'SCHOOL No. 12', Math.floor((w - textW('SCHOOL No. 12')) / 2), 19, HEX('skyL'));
-  });
-  const sign = new THREE.Mesh(new THREE.PlaneGeometry(6.2, 1.68), new THREE.MeshLambertMaterial({ map: signTex, emissive: 0x6a6a6a, emissiveMap: signTex }));
+  const signMat = new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x6a6a6a });
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(6.2, 1.68), signMat);
   sign.rotation.y = Math.PI / 2; sign.position.set(SX + 0.09, 4.85, 0); school.add(sign);
+  sceneText(sign, 6.2, 1.68, [[signMat, ['map', 'emissiveMap']]], SIGN_LAYOUTS, { bg: 'navy', frame: signFrame });
   // scoreboard 64x32
   bx(0.3, 3.1, 5.6, 'ink', SX, 3.65, -8.5, school);
-  scoreboardTex = canvasTex(64, 32, () => {});
-  const sb = new THREE.Mesh(new THREE.PlaneGeometry(5.0, 2.5), new THREE.MeshBasicMaterial({ map: scoreboardTex }));
+  const sbMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const sb = new THREE.Mesh(new THREE.PlaneGeometry(5.0, 2.5), sbMat);
   sb.rotation.y = Math.PI / 2; sb.position.set(SX + 0.32, 5.2, -8.5); school.add(sb);
+  SB_TEXT = sceneText(sb, 5.0, 2.5, [[sbMat, ['map']]], SB_LAYOUTS, { bg: 'nightB' });
   // wall clock
   const ck = new THREE.Group(); ck.position.set(SX + 0.08, 5.2, 8.2); school.add(ck);
   const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.95, 0.1, 20), mat('ink')); rim.rotation.z = Math.PI / 2; ck.add(rim);
@@ -799,7 +1043,7 @@ let scoreboardTex, clockHands = {}, flagGeo, flagBase;
   block(-27, 11.4, -26.2, 12.2);
   const flagTex = canvasTex(24, 15, (g, w, h) => {
     g.fillStyle = HEX('navy'); g.fillRect(0, 0, w, h); g.fillStyle = HEX('yellow'); g.fillRect(0, 10, w, 2);
-    pixText(g, '12', 8, 3, HEX('white'));
+    fpMid(g, '12', w / 2, 3, HEX('white'), 8);
   });
   flagGeo = new THREE.PlaneGeometry(2.4, 1.5, 12, 4); flagGeo.translate(1.2, 0, 0);
   flagBase = flagGeo.attributes.position.array.slice();
@@ -962,9 +1206,11 @@ for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
   const awn = canvasTex(8, 2, (g) => { for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? HEX('white') : HEX('crimson'); g.fillRect(i, 0, 1, 2); } });
   const aw = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 1.3), new THREE.MeshLambertMaterial({ map: awn, side: THREE.DoubleSide }));
   aw.rotation.x = -Math.PI / 2 + 0.5; aw.position.set(ssx, 2.35, ssz - 1.4); scene.add(shade(aw));
-  const snTex = canvasTex(44, 11, (g, w, h) => { g.fillStyle = HEX('yellow'); g.fillRect(0, 0, w, h); cjkText(g, '小卖部', w / 2, 0, 10, HEX('ink')); });
-  const sn = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.6), new THREE.MeshLambertMaterial({ map: snTex })); sn.position.set(ssx, 2.55, ssz + 1.01); sn.rotation.y = 0; scene.add(sn);
-  const sn2 = sn.clone(); sn2.position.z = ssz - 1.01; sn2.rotation.y = Math.PI; scene.add(sn2);
+  const snMat = new THREE.MeshLambertMaterial({ color: 0xffffff }), snMat2 = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  const sn = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.6), snMat); sn.position.set(ssx, 2.55, ssz + 1.01); sn.rotation.y = 0; scene.add(sn);
+  const sn2 = new THREE.Mesh(sn.geometry, snMat2); sn2.position.set(ssx, 2.55, ssz - 1.01); sn2.rotation.y = Math.PI; scene.add(sn2);
+  sceneText(sn, 2.4, 0.6, [[snMat, ['map']]], SNACK_LAYOUTS, { bg: 'yellow' });
+  sceneText(sn2, 2.4, 0.6, [[snMat2, ['map']]], SNACK_LAYOUTS, { bg: 'yellow' });
   block(ssx - 1.8, ssz - 1.2, ssx + 1.8, ssz + 1.2);
 }
 
@@ -2356,28 +2602,13 @@ function simStep(dt) {
   } else stepBall(dt);
 }
 
-// ---------------- scoreboard (64x32 canvas texture, pixel font)
+// ---------------- scoreboard (adaptive scene-text texture; layouts in SB_LAYOUTS)
 let sbKey = '';
 function drawScoreboard(force) {
-  if (!MATCH.home) return;
-  const H = MATCH.home, A = MATCH.away;
-  const cl = Math.min(CFG.HALF, MATCH.clock), mm = String(Math.floor(cl / 60)).padStart(2, '0'), ss = String(Math.floor(cl % 60)).padStart(2, '0');
-  const key = [H.score, A.score, mm, ss, MATCH.half, H.fouls, A.fouls, H.club.id, A.club.id, MATCH.state].join('|');
-  if (key === sbKey && !force) return; sbKey = key;
-  const g = scoreboardTex.image.getContext('2d');
-  g.fillStyle = HEX('nightB'); g.fillRect(0, 0, 64, 32);
-  g.fillStyle = HEX('navy'); g.fillRect(0, 8, 64, 1); g.fillRect(0, 22, 64, 1);
-  const tc = k => (k === 'ink' ? HEX('lgrey') : HEX(k));
-  pixText(g, H.club.id, 1, 1, tc(H.club.shirt));
-  pixText(g, A.club.id, 64 - 1 - textW(A.club.id), 1, tc(A.club.shirt));
-  const sc = `${H.score}-${A.score}`; pixText(g, sc, Math.floor((64 - textW(sc)) / 2), 1, HEX('white'));
-  const clock = `${mm}:${ss}`; pixText(g, clock, Math.floor((64 - textW(clock, 2)) / 2), 10, HEX('warm'), 2);
-  const ph = MATCH.state === 'halftime' ? 'HT' : MATCH.state === 'fulltime' || MATCH.state === 'handshake' || MATCH.state === 'walkin' || MATCH.state === 'post' ? 'FT' : MATCH.state === 'play' || MATCH.state === 'goal' ? (MATCH.half === 1 ? 'H1' : 'H2') : '--';
-  pixText(g, ph, Math.floor((64 - textW(ph)) / 2), 25, HEX('white'));
-  for (const [T, x0, dirx] of [[H, 1, 1], [A, 62, -1]]) {
-    for (let i = 0; i < 5; i++) { g.fillStyle = i < T.fouls ? (T.fouls >= 5 ? HEX('crimson') : HEX('yellow')) : HEX('navy'); g.fillRect(x0 + dirx * i * 3 - (dirx < 0 ? 1 : 0), 26, 2, 2); }
-  }
-  scoreboardTex.needsUpdate = true;
+  if (!MATCH.home || !SB_TEXT) return;
+  const H = MATCH.home, A = MATCH.away, cl = Math.min(CFG.HALF, MATCH.clock);
+  const key = [H.score, A.score, Math.floor(cl), MATCH.half, H.fouls, A.fouls, H.club.id, A.club.id, MATCH.state].join('|');
+  if (key === sbKey && !force) return; sbKey = key; SB_TEXT.dirty = true;
 }
 
 /* =====================================================================
@@ -3547,6 +3778,8 @@ window.__game = {
   sound: { get log() { return AUD.log; }, get snaps() { return AUD.snaps; }, get on() { return AUD.on; }, get ready() { return !!(AUD.eng && AUD.eng.ready); }, get mode() { return AUD.mode; }, get amb() { return AUD.amb; }, get engAmb() { return AUD.eng ? AUD.eng.ambUser : null; }, render: (t0, t1, o) => AUD.render(t0, t1, o), stands: () => getStands() },
   // capture mode (?capture=1): advance the sim by hand, rendering one frame at the end (deterministic A/V for clips)
   advance(sec, render = true) { const n = Math.round(sec / CFG.FIXED); for (let i = 0; i < n; i++) { simStep(CFG.FIXED); if (i % 3 === 2 || i === n - 1) { updateCamera(CFG.FIXED * 3); AUD.snap(); } } if (render) { if (MATCH.t > bannerSimUntil) bannerEl.classList.remove('on'); visuals(sec); renderFrame(); } return MATCH.t; },
+  get stext() { return SCENE_TEXT.map(o => ({ W: o.W, H: o.H, lay: o.lay, s: o.s, sl: o.sl, ph: o.ph, avail: o.avail.map(v => Math.round(v)), sizes: o.sizes })); },
+  toScreen(x, y, z) { const v = new THREE.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2 * RW, (1 - v.y) / 2 * RH]; },
   get q() { return QUAL.mode; }, get tier() { return QUAL.tier; }, get qlog() { return QUAL.log; },
   setQ(m) { QUAL.setMode(m); return [QUAL.tier, RW, RH, PXS]; },
   // feed the auto-tier controller synthetic frames: segs = [[interval ms, work ms, seconds], ...] -> tier after each segment
