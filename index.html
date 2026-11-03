@@ -45,6 +45,10 @@ h1{font:800 clamp(26px,4.2vw,42px)/1.15 var(--cjk);margin:8px 0 6px;letter-spaci
 select{min-height:40px;width:100%;border:1px solid var(--ink);border-radius:6px;background:#fff;color:var(--ink);font:inherit;font-size:13px;padding:0 8px}
 .vs{flex:0 0 auto!important;align-self:center;font:13px var(--cjk);color:var(--muted)}
 .hint{font-size:12px;color:var(--muted);margin:6px 0 0}
+.sndrow{align-items:center}
+.sndrow input[type=range]{flex:1 1 0;min-width:0;height:40px;margin:0;accent-color:var(--ink)}
+#soundBtn{flex:0 0 auto;min-width:118px}
+.hudr #sndQuick{display:flex;align-items:center;justify-content:center}
 .feed{margin-top:16px}
 #feed{list-style:none;margin:0;padding:0;max-height:300px;overflow:auto;border-top:1px solid var(--line)}
 #feed li{display:grid;grid-template-columns:42px 1fr;gap:8px;padding:8px 2px;border-bottom:1px solid var(--line);font-size:14px}
@@ -94,6 +98,7 @@ footer{margin-top:26px;padding-top:12px;border-top:1px solid var(--line);font-si
           <button id="rotR" title="向右旋转" aria-label="向右旋转视角">&#x27F3;</button>
           <button id="zoomIn" title="放大" aria-label="放大">+</button>
           <button id="zoomOut" title="缩小" aria-label="缩小">&minus;</button>
+          <button id="sndQuick" title="开启声音" aria-label="开启声音" aria-pressed="false"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 7h3l4-3v12l-4-3H3z" fill="currentColor"/><path d="M13 7l5 6M18 7l-5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
         </div>
         <div class="banner" id="banner"></div>
         <div class="loading" id="loading">正在搭建校园操场……</div>
@@ -123,9 +128,13 @@ footer{margin-top:26px;padding-top:12px;border-top:1px solid var(--line);font-si
         <div class="row2"><button class="btn" id="pauseBtn" aria-pressed="false">暂停</button><div class="seg" id="speedSeg"><button data-v="1">1×</button><button data-v="2">2×</button></div></div>
         <div class="row2" style="margin-top:6px"><button class="btn" id="feedBtn" aria-pressed="true">解说：开</button><button class="btn" id="restartBtn">重新开始</button></div>
       </div>
+      <div class="ctl"><span class="lab">声音</span>
+        <div class="row2 sndrow"><button class="btn" id="soundBtn" aria-pressed="false">开启声音</button><input type="range" id="volSlider" min="0" max="100" value="70" aria-label="音量"></div>
+        <p class="hint" id="soundHint">默认静音。点“开启声音”后可听到哨声、球声和看台观众。</p>
+      </div>
     </aside>
   </div>
-  <footer>所有人物、球队与美术均为原创。</footer>
+  <footer>所有人物、球队与美术均为原创。声音为程序实时合成；裁判哨声、进球欢呼与叹息来自 Freesound 的 CC0（公共领域）录音，详见 README。</footer>
 </div>
 
 <script type="module">
@@ -156,7 +165,9 @@ if (Q.get('cam')) STATE.cam = Q.get('cam');
 // seeded RNG (stable scenery)
 function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 const srand = mulberry(1212);
-const rnd = Math.random;
+const SEED = Q.get('seed');
+const rnd = SEED ? mulberry(+SEED || 1) : Math.random;   // ?seed=N makes a match reproducible (headless sound tests)
+const CAPTURE = Q.get('capture') === '1';
 const rr = (a, b, r = rnd) => a + (b - a) * r();
 const pick = (arr, r = rnd) => arr[Math.floor(r() * arr.length)];
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
@@ -800,10 +811,10 @@ function stepBall(dt) {
   }
   // net + fence containment
   if (Math.abs(p.x) > 20 && Math.abs(p.z) < 1.5 && p.y < 2) {
-    if (Math.abs(p.x) > 20.85) { p.x = Math.sign(p.x) * 20.85; v.x *= -0.12; v.z *= 0.5; v.y *= 0.4; }
+    if (Math.abs(p.x) > 20.85) { if (Math.abs(v.x) > 1.5) sndEv('net', { v: Math.abs(v.x), x: p.x, z: p.z }); p.x = Math.sign(p.x) * 20.85; v.x *= -0.12; v.z *= 0.5; v.y *= 0.4; }
   }
-  if (Math.abs(p.x) > CFG.FX - 0.2) { p.x = Math.sign(p.x) * (CFG.FX - 0.2); v.x *= -0.3; }
-  if (Math.abs(p.z) > CFG.FZ - 0.2) { p.z = Math.sign(p.z) * (CFG.FZ - 0.2); v.z *= -0.3; }
+  if (Math.abs(p.x) > CFG.FX - 0.2) { if (Math.abs(v.x) > 2) sndEv('fence', { v: Math.abs(v.x), x: p.x, z: p.z }); p.x = Math.sign(p.x) * (CFG.FX - 0.2); v.x *= -0.3; }
+  if (Math.abs(p.z) > CFG.FZ - 0.2) { if (Math.abs(v.z) > 2) sndEv('fence', { v: Math.abs(v.z), x: p.x, z: p.z }); p.z = Math.sign(p.z) * (CFG.FZ - 0.2); v.z *= -0.3; }
 }
 // Ground pass: analytic initial speed so the ball covers d metres and arrives at va.
 // Each phase obeys dv/dt = -(a + k v^2)  =>  s = ln((a + k v1^2)/(a + k v2^2)) / 2k.
@@ -1535,7 +1546,8 @@ function doNudge(p, nz) {
   }
   return false;
 }
-function kick(p, vel) {
+function kick(p, vel, kind = 'pass') {
+  sndEv('kick', { spd: vel.length(), kind, x: ball.p.x, z: ball.p.z });
   ball.owner = null; ball.hands = false; ball.v.copy(vel); if (ball.p.y < R) ball.p.y = R;
   ball.air = vel.y > 0.05; ball.sliding = !ball.air; ball.slideV0 = Math.hypot(vel.x, vel.z);
   ball.lastTouch = p; p.cool = 0.35; p.holdT = 0; setAnim(p, 'kick');
@@ -1549,7 +1561,7 @@ function pass(p, r, pt, lob) {
   if (lob) { const T = 0.7 + dist * 0.055; vel = lobVelocity(ball.p, new V3(pt[0], 0.4, pt[1]), T); }
   else { const v0 = groundPassSpeed(dist, clamp(2.8 + dist * 0.1, 2.8, 5)); vel = new V3(dx / dist * v0, 0, dz / dist * v0); }
   vel.set(vel.x * ca - vel.z * sa, vel.y, vel.x * sa + vel.z * ca);
-  kick(p, vel);
+  kick(p, vel, lob ? 'lob' : 'pass');
   MATCH.pass = { from: p, to: r, t: MATCH.t, lob }; p.team.receiver = r; other(p.team).receiver = null;
   if (lob && rnd() < 0.3) say(pick([`${nm(p)}挑传找${r.name}。`, `${p.name}送出一记高球，寻找${r.name}。`]));
 }
@@ -1561,7 +1573,7 @@ function shoot(p, power, placed = false) {
   const vel = lobVelocity(ball.p, tgt, dist / speed);
   const spray = placed ? 0.4 : 0.5 + dist * 0.05;
   vel.z += rr(-1, 1) * spray; vel.y += rr(-0.5, 0.6) * (placed ? 0.5 : 1);
-  kick(p, vel);
+  kick(p, vel, 'shot');
   MATCH.shot = { by: p, team: p.team, t: MATCH.t, rolled: false, dist };
   MATCH.shots++; MATCH.ooh = MATCH.t + 1.2; flashPhoto();
   if (!placed) say(dist > 11 ? pick([`${nm(p)}在${Math.round(dist)}米外尝试远射。`, `${nm(p)}一脚劲射！`, `${nm(p)}远距离起脚！`]) : pick([`${nm(p)}近距离打门！`, `${nm(p)}在${Math.round(dist)}米处抢射！`, `${nm(p)}获得射门机会！`]));
@@ -1571,7 +1583,7 @@ function cross(p) {
   const r = nearestOutfield(p.team, tgt, p); if (!r) return;
   r.markerP = tgt; r.markerT = MATCH.t + 2.5;
   const vel = lobVelocity(ball.p, new V3(tgt[0], 1.0, tgt[1]), 1.15);
-  kick(p, vel); MATCH.pass = { from: p, to: r, t: MATCH.t, lob: true }; p.team.receiver = r;
+  kick(p, vel, 'cross'); MATCH.pass = { from: p, to: r, t: MATCH.t, lob: true }; p.team.receiver = r;
   say(pick([`${nm(p)}难得送出一脚传中。`, `${p.name}把球传进禁区！`]));
 }
 function gkDistribute(p) {
@@ -1583,7 +1595,7 @@ function gkDistribute(p) {
   ball.p.y = 1.3 * p.scale;
   const vel = dist > 6 ? lobVelocity(ball.p, new V3(pt[0], 0.4, pt[1]), 0.45 + dist * 0.035) : new V3((pt[0] - ball.p.x) / dist * 6, 0, (pt[1] - ball.p.z) / dist * 6);
   if (dist <= 6) ball.p.y = R;
-  kick(p, vel); setAnim(p, 'throw');
+  kick(p, vel, 'throw'); setAnim(p, 'throw');
   MATCH.pass = { from: p, to: r, t: MATCH.t }; p.team.receiver = r;
 }
 
@@ -1606,8 +1618,10 @@ function tryControl() {
       const pSave = clamp(0.9 - (spd - 12) * 0.04 - (sh.dist < 8 ? 0.2 : 0), 0.3, 0.88);
       if (rnd() < pSave) {
         MATCH.saves++;
+        sndEv('save', { kind: spd < 17 && ball.p.y < 1.9 ? 'catch' : 'parry', x: ball.p.x, z: ball.p.z, w: standW(c.team) }); MATCH.ooh = MATCH.t + 1.5;
         if (spd < 17 && ball.p.y < 1.9 && rnd() < 0.6) { gainBall(c, true); say(pick([`扑住了！${nm(c)}稳稳把球抱住。`, `${c.name}轻松将球没收。`])); }
         else {
+          sndEv('parry', { x: ball.p.x, z: ball.p.z });
           ball.v.set(-ball.v.x * 0.35, rr(1.5, 3.5), ball.v.z * 0.4 + rr(-4, 4)); ball.air = true;
           ball.lastTouch = c; c.cool = 0.5; MATCH.shot = null;
           say(pick([`${nm(c)}一个漂亮的扑救！`, `${c.name}把球托了出去！`, `${c.name}奋力将球挡出。`]));
@@ -1615,15 +1629,16 @@ function tryControl() {
       } else { c.cool = 0.7; }
       return;
     }
-    if (rnd() < 0.3) { ball.v.multiplyScalar(-0.3); ball.v.x += rr(-2, 2); ball.v.z += rr(-3, 3); ball.lastTouch = c; c.cool = 0.4; MATCH.shot = null; say(`${c.name}把球封堵了出去！`); }
+    if (rnd() < 0.3) { sndEv('block', { x: ball.p.x, z: ball.p.z }); sndEv('save', { kind: 'block', w: standW(c.team) }); ball.v.multiplyScalar(-0.3); ball.v.x += rr(-2, 2); ball.v.z += rr(-3, 3); ball.lastTouch = c; c.cool = 0.4; MATCH.shot = null; say(`${c.name}把球封堵了出去！`); }
     else c.cool = 0.4;
     return;
   }
-  if (spd > 13 && !gkC && rnd() < 0.5) { ball.v.multiplyScalar(0.35); ball.v.x += rr(-1.5, 1.5); ball.v.z += rr(-1.5, 1.5); ball.lastTouch = c; c.cool = 0.25; return; }
+  if (spd > 13 && !gkC && rnd() < 0.5) { sndEv('trap', { v: spd, x: ball.p.x, z: ball.p.z }); ball.v.multiplyScalar(0.35); ball.v.x += rr(-1.5, 1.5); ball.v.z += rr(-1.5, 1.5); ball.lastTouch = c; c.cool = 0.25; return; }
   gainBall(c, gkC && ball.lastTouch && ball.lastTouch.team !== c.team);
 }
-function gainBall(c, hands) {
+function gainBall(c, hands, quiet) {
   const prev = MATCH.possTeam;
+  if (!quiet) sndEv(hands ? 'catch' : 'trap', { v: ball.v.length(), x: ball.p.x, z: ball.p.z });
   ball.owner = c; ball.hands = !!hands; ball.v.set(0, 0, 0); ball.air = false;
   ball.lastTouch = c; MATCH.possTeam = c.team; MATCH.shot = null;
   c.decT = rr(0.25, 0.6); c.holdT = 0; c.team.receiver = null; other(c.team).receiver = null;
@@ -1639,12 +1654,13 @@ function tryTackles() {
     d.tackT = 0;
     const r = rnd();
     if (r < 0.1) return commitFoul(d, o);
-    if (r < 0.42) { o.cool = 0.6; gainBall(d, false); if (rnd() < 0.3) say(pick([`${nm(d)}把球抢了回来。`, `${d.name}一次干净利落的抢断。`])); return; }
+    if (r < 0.42) { o.cool = 0.6; sndEv('tackle', { x: o.pos.x, z: o.pos.z }); gainBall(d, false, true); if (rnd() < 0.3) say(pick([`${nm(d)}把球抢了回来。`, `${d.name}一次干净利落的抢断。`])); return; }
     d.cool = 0.35;
   }
 }
 function commitFoul(d, a) {
   const T = d.team; T.fouls++; MATCH.fouls++;
+  sndEv('foul', { x: a.pos.x, z: a.pos.z, w: standW(a.team) }); sndEv('whistle', { kind: 'foul', delay: 0.22 });
   const spot = clampCourt(a.pos.x, a.pos.z, 0.4);
   ball.owner = null; ball.hands = false; ball.v.set(0, 0, 0);
   MATCH.phase = 'dead'; setAnim(a, 'sit'); a.cool = 1;
@@ -1662,8 +1678,8 @@ function checkBall() {
   const b = ball.p, ax = Math.abs(b.x);
   // woodwork
   if (ax > 20 - R && ax < 20.3 && b.y < 2.1 && ball.v.x * Math.sign(b.x) > 0) {
-    if (Math.abs(Math.abs(b.z) - 1.5) < 0.08 + R) { ball.v.x *= -0.6; ball.v.z += Math.sign(b.z) * 1.5; b.x = Math.sign(b.x) * (20 - R - 0.02); say(pick(['击中门柱！', '球打在门柱上弹了回来！'])); MATCH.shot = null; return; }
-    if (Math.abs(b.z) < 1.5 && Math.abs(b.y - 2) < 0.08 + R) { ball.v.x *= -0.5; ball.v.y = -Math.abs(ball.v.y) * 0.5; b.x = Math.sign(b.x) * (20 - R - 0.02); say('球狠狠砸在横梁上！'); MATCH.shot = null; return; }
+    if (Math.abs(Math.abs(b.z) - 1.5) < 0.08 + R) { sndEv('post', { x: b.x, z: b.z }); MATCH.ooh = MATCH.t + 1.6; ball.v.x *= -0.6; ball.v.z += Math.sign(b.z) * 1.5; b.x = Math.sign(b.x) * (20 - R - 0.02); say(pick(['击中门柱！', '球打在门柱上弹了回来！'])); MATCH.shot = null; return; }
+    if (Math.abs(b.z) < 1.5 && Math.abs(b.y - 2) < 0.08 + R) { sndEv('post', { bar: 1, x: b.x, z: b.z }); MATCH.ooh = MATCH.t + 1.6; ball.v.x *= -0.5; ball.v.y = -Math.abs(ball.v.y) * 0.5; b.x = Math.sign(b.x) * (20 - R - 0.02); say('球狠狠砸在横梁上！'); MATCH.shot = null; return; }
   }
   if (ax > 20 + R) {
     const end = Math.sign(b.x);
@@ -1671,10 +1687,12 @@ function checkBall() {
     if (Math.abs(b.z) < 1.5 - R * 0.5 && b.y < 2 - R) {
       const lt = ball.lastTouch, own = lt && lt.team !== att;
       MATCH.phase = 'dead';
+      sndEv('goal', { home: att === MATCH.home, own: !!own, x: b.x, z: b.z, w: standW(att), wo: standW(def, 0.15, 0.6) });
       MATCH.pending = { type: 'goal', team: att, scorer: own ? null : lt, own: own ? lt : null };
       return;
     }
     MATCH.phase = 'dead'; kidWave();
+    if (MATCH.shot) { const near = Math.abs(b.z) < 3.2 && b.y < 3; sndEv('miss', { near, x: b.x, z: b.z, w: standW(att) }); if (near) MATCH.ooh = MATCH.t + 1.4; }
     if (MATCH.shot) say(pick([`${MATCH.shot.by.name}的射门偏出。`, `${MATCH.shot.by.name}的射门擦着门柱出去了。`, `${MATCH.shot.by.name}的射门高出横梁。`]));
     MATCH.shot = null;
     if (ball.lastTouch && ball.lastTouch.team === def) {
@@ -1753,7 +1771,9 @@ function* restart(kind, T, spot) {
   MATCH.taker = taker;
   yield* waitUntil(() => Math.hypot(taker.pos.x - taker.rTarget[0], taker.pos.z - taker.rTarget[1]) < 0.35, 4.5);
   taker.pos.x = taker.rTarget[0]; taker.pos.z = taker.rTarget[1]; taker.vel.set(0, 0, 0);
-  yield* wait(kind === 'kickoff' ? 1.0 : kind === 'penalty' || kind === 'tenm' ? 1.6 : 0.6);
+  const wt = kind === 'kickoff' ? 1.0 : kind === 'penalty' || kind === 'tenm' ? 1.6 : 0.6;
+  const wk = kind === 'kickoff' ? 'kickoff' : kind === 'free' || kind === 'penalty' || kind === 'tenm' ? 'restart' : null;
+  if (wk) { yield* wait(wt - 0.45); sndEv('whistle', { kind: wk }); yield* wait(0.45); } else yield* wait(wt);
   MATCH.phase = 'live';
   for (const p of [...onCourt(T), ...onCourt(O)]) p.rTarget = null;
   ball.lastTouch = taker; MATCH.possTeam = T;
@@ -1841,7 +1861,7 @@ function* director() {
   for (let i = 0; i < 9; i++) order.push(H.players[i], A.players[i]);
   order.push(STAFF.coachH, STAFF.coachA);
   for (const c of order) { c.visible = true; c.pos.set(SX + 0.7, 0, rr(-0.5, 0.5)); c.heading = Math.PI / 2; c.co = walkoutCo(c); yield* wait(0.45); }
-  MATCH.cheer = { side: -1, until: MATCH.t + 3 };
+  MATCH.cheer = { side: -1, until: MATCH.t + 3 }; sndEv('applause', { level: 0.55, big: true, cheer: 0.35 });
   yield* waitUntil(() => order.every(c => !c.co), 50);
   MATCH.state = 'warmup';
   say('热身时间：拉伸、冲刺，再来几下花式挑球。');
@@ -1858,7 +1878,7 @@ function* director() {
   yield* waitUntil(() => [...onCourt(H), ...onCourt(A), STAFF.ref].every(c => !c.co), 20);
   for (const c of [...onCourt(H), ...onCourt(A), STAFF.ref]) { c.face = 0; setAnim(c, 'wave'); }
   say('双方列队完毕，向看台挥手致意。');
-  MATCH.cheer = { side: -1, until: MATCH.t + 3 };
+  MATCH.cheer = { side: -1, until: MATCH.t + 3 }; sndEv('applause', { level: 0.6, big: true, cheer: 0.4 });
   yield* wait(3);
   for (const c of [...onCourt(H), ...onCourt(A), STAFF.ref]) setAnim(c, 'idle');
   STAFF.ref.brain = refBrain;
@@ -1876,6 +1896,8 @@ function* director() {
       yield;
     }
     MATCH.phase = 'dead'; MATCH.pending = null; ball.owner = null; ball.hands = false; MATCH.shot = null;
+    sndEv('whistle', { kind: half === 1 ? 'half' : 'full' });
+    if (half === 1) sndEv('applause', { level: 0.5, big: true, delay: 1.4 });
     if (half === 1) yield* halftime();
   }
   yield* fulltime();
@@ -1903,7 +1925,7 @@ function* celebrate(ev) {
   let t = 0;
   while (t < 4.5) {
     // the scorer sprints to the corner, then drops into a knee slide
-    if (sc.anim !== 'slide' && t > 1.2 && Math.hypot(sc.pos.x - corner[0], sc.pos.z - corner[1]) < 2.6) setAnim(sc, 'slide');
+    if (sc.anim !== 'slide' && t > 1.2 && Math.hypot(sc.pos.x - corner[0], sc.pos.z - corner[1]) < 2.6) { setAnim(sc, 'slide'); sndEv('surge', { w: standW(T), home: T === MATCH.home }); }
     sc.dTarget = corner; sc.dSpeed = sc.anim === 'slide' ? 2.2 : 5.2;
     onCourt(T).forEach((p, i) => { if (p !== sc) { p.dTarget = [sc.pos.x - s * (0.8 + (i % 2) * 0.7), sc.pos.z + (i - 2) * 0.6]; p.dSpeed = 5; } });
     t += DT; yield;
@@ -1944,6 +1966,7 @@ function* fulltime() {
   const all = [...H.players, ...A.players];
   for (const p of all) { p.brain = null; p.co = null; if (win && p.team === win && p.onCourt) setAnim(p, 'celebrate'); else if (p.anim !== 'sit') setAnim(p, 'idle'); }
   if (win) MATCH.cheer = { side: win === H ? 0 : 1, until: MATCH.t + 5 };
+  sndEv('applause', win ? { level: 0.7, big: true, cheer: 0.6, w: standW(win), delay: 1.6 } : { level: 0.6, big: true, delay: 1.6 });
   STAFF.ref.brain = null;
   yield* wait(4);
   MATCH.state = 'handshake'; MATCH.hsGo = false;
@@ -2037,11 +2060,826 @@ function say(text, cls = '') {
   li.append(b, sp); feedEl.prepend(li);
   while (feedEl.children.length > 150) feedEl.lastChild.remove();
 }
-let bannerTimer = 0;
+let bannerTimer = 0, bannerSimUntil = 0;
 function showBanner(text) {
-  bannerEl.textContent = text; bannerEl.classList.add('on');
+  bannerEl.textContent = text; bannerEl.classList.add('on'); bannerSimUntil = MATCH.t + 2.6;
   clearTimeout(bannerTimer); bannerTimer = setTimeout(() => bannerEl.classList.remove('on'), 2600);
 }
+
+
+/* =====================================================================
+   SOUND  (procedural Web Audio: layered crowd, whistle, ball by surface)
+   Shared verbatim by index.html and sound-test.html (inlined by build.py).
+   Everything is synthesised in plain JS into AudioBuffers once, then the
+   "sound director" schedules them on the AudioContext clock.
+   ===================================================================== */
+function SND_FACTORY() {
+  const TAU = Math.PI * 2;
+  function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
+  const sm = x => x * x * (3 - 2 * x);
+
+  // ---------- tiny DSP ----------
+  class Filt {
+    constructor() { this.b0 = 1; this.b1 = this.b2 = this.a1 = this.a2 = 0; this.x1 = this.x2 = this.y1 = this.y2 = 0; }
+    set(type, f, Q, sr) {
+      const w = TAU * Math.min(f, sr * 0.45) / sr, cs = Math.cos(w), sn = Math.sin(w), al = sn / (2 * Q);
+      let b0, b1, b2; const a0 = 1 + al;
+      if (type === 'bp') { b0 = al; b1 = 0; b2 = -al; }
+      else if (type === 'lp') { b0 = (1 - cs) / 2; b1 = 1 - cs; b2 = b0; }
+      else { b0 = (1 + cs) / 2; b1 = -(1 + cs); b2 = b0; }
+      this.b0 = b0 / a0; this.b1 = b1 / a0; this.b2 = b2 / a0; this.a1 = -2 * cs / a0; this.a2 = (1 - al) / a0;
+      return this;
+    }
+    p(x) { const y = this.b0 * x + this.b1 * this.x1 + this.b2 * this.x2 - this.a1 * this.y1 - this.a2 * this.y2; this.x2 = this.x1; this.x1 = x; this.y2 = this.y1; this.y1 = y; return y; }
+  }
+  function filtArr(a, type, f, Q, sr) { const F = new Filt().set(type, f, Q, sr); for (let i = 0; i < a.length; i++) a[i] = F.p(a[i]); return a; }
+  function noiseGen(seed) { let s = (seed | 0) || 1; return () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return (s >>> 0) / 2147483648 - 1; }; }
+  function blep(t, dt) { if (t < dt) { t /= dt; return t + t - t * t - 1; } if (t > 1 - dt) { t = (t - 1) / dt; return t * t + t + t + 1; } return 0; }
+  function stereo(n) { return [new Float32Array(n), new Float32Array(n)]; }
+  function rms(ch) { let s = 0, n = 0; for (const c of ch) { for (let i = 0; i < c.length; i++) s += c[i] * c[i]; n += c.length; } return Math.sqrt(s / Math.max(1, n)); }
+  function peak(ch) { let p = 0; for (const c of ch) for (let i = 0; i < c.length; i++) { const v = Math.abs(c[i]); if (v > p) p = v; } return p; }
+  function scale(ch, k) { for (const c of ch) for (let i = 0; i < c.length; i++) c[i] *= k; return ch; }
+  function normRMS(ch, target) { const r = rms(ch); if (r > 1e-9) scale(ch, target / r); const p = peak(ch); if (p > 0.98) scale(ch, 0.98 / p); return ch; }
+  function normPeak(ch, target) { const p = peak(ch); if (p > 1e-9) scale(ch, target / p); return ch; }
+  function panG(p) { const a = (clamp(p, -1, 1) + 1) * Math.PI / 4; return [Math.cos(a), Math.sin(a)]; }
+  // make a buffer loop seamlessly: crossfade the tail (xf s) into the head and drop the tail
+  function makeLoop(ch, sr, xf) {
+    const n = ch[0].length, x = Math.floor(xf * sr), m = n - x;
+    return ch.map(c => { const o = c.slice(0, m); for (let i = 0; i < x; i++) { const k = i / x, a = Math.sqrt(k), b = Math.sqrt(1 - k); o[i] = c[i] * a + c[m + i] * b; } return o; });
+  }
+
+  // ---------- voices (formant synthesis) ----------
+  const VOW = { a: [780, 1180, 2500], o: [540, 860, 2450], u: [330, 780, 2300], e: [470, 1880, 2550], E: [640, 1650, 2450], i: [290, 2250, 2950], ae: [700, 1550, 2450], er: [490, 1350, 2350] };
+  const TALKV = ['a', 'o', 'e', 'E', 'i', 'u', 'ae', 'er', 'a', 'e'];
+  function voiceType(R, kidFrac, femFrac) {
+    const r = R();
+    if (r < kidFrac) return { f0: 245 + R() * 85, fs: 1.25 + R() * 0.1, kid: true };
+    if (R() < femFrac) return { f0: 178 + R() * 55, fs: 1.13 + R() * 0.07 };
+    return { f0: 98 + R() * 45, fs: 0.98 + R() * 0.06 };
+  }
+  // seg: {t0, dur, v0, v1, amp, p0, p1, pk (pitch peak shape 0..1 or undefined), a, r, cons, camp, br}
+  function renderVoices(sr, N, voices, out) {
+    const [L, Rt] = out; const BLK = 32;
+    for (const v of voices) {
+      const segs = v.segs; if (!segs.length) continue;
+      segs.sort((a, b) => a.t0 - b.t0);
+      const f1 = new Filt(), f2 = new Filt(), f3 = new Filt(), cf = new Filt().set('hp', 2600 + v.fs * 900, 0.8, sr), nz = noiseGen(v.seed);
+      const [gL, gR] = panG(v.pan), lpA = 1 - Math.exp(-TAU * v.lp / sr);
+      let phase = (v.seed % 997) / 997, lp = 0, envP = 0, jit = 0, jitV = 0, si = 0, rg = 0; const rough = v.rough || 0;
+      const q1 = v.fs * 1.0, g2 = 0.5, g3 = v.bright != null ? v.bright : 0.25;
+      for (let b0 = 0; b0 < N; b0 += BLK) {
+        const t = b0 / sr;
+        while (si < segs.length && segs[si].t0 + segs[si].dur + 0.02 < t) si++;
+        if (si >= segs.length) break;
+        const s = segs[si];
+        if (t < s.t0 - 0.004 && envP < 1e-4) { const nb = Math.floor((s.t0 - 0.003) * sr / BLK) * BLK; if (nb > b0) { b0 = nb - BLK; continue; } }
+        let env = 0;
+        if (t >= s.t0 && t <= s.t0 + s.dur) { env = Math.min(1, (t - s.t0) / s.a, (s.t0 + s.dur - t) / s.r); env = sm(clamp(env, 0, 1)) * s.amp; }
+        const u = clamp((t - s.t0) / s.dur, 0, 1);
+        let pm;
+        if (s.pk != null) { pm = u < s.pk ? s.p0 + (s.pm - s.p0) * sm(u / s.pk) : s.pm + (s.p1 - s.pm) * sm((u - s.pk) / (1 - s.pk)); }
+        else pm = s.p0 + (s.p1 - s.p0) * u;
+        jitV += (nz() * 0.5 - jitV) * 0.08; jit += (jitV * (v.jit || 0.02) - jit) * 0.2;
+        const f0 = v.f0 * pm * (1 + 0.01 * Math.sin(TAU * 5.3 * t + v.seed) + jit), dt = f0 / sr;
+        const va = VOW[s.v0], vb = VOW[s.v1], k = sm(u), fsx = v.fs * (1 + 0.06 * (pm - 1));
+        f1.set('bp', (va[0] + (vb[0] - va[0]) * k) * fsx, 7 * q1, sr);
+        f2.set('bp', (va[1] + (vb[1] - va[1]) * k) * fsx, 11 * q1, sr);
+        f3.set('bp', (va[2] + (vb[2] - va[2]) * k) * fsx, 14 * q1, sr);
+        const br = s.br != null ? s.br : (v.br || 0.06), consEnd = s.t0 + (s.cons || 0);
+        const e0 = envP, de = (env - envP) / BLK; envP = env;
+        const n1 = Math.min(N, b0 + BLK);
+        for (let i = b0, j = 0; i < n1; i++, j++) {
+          phase += dt; if (phase >= 1) phase -= 1;
+          const saw = 2 * phase - 1 - blep(phase, dt), w = nz();
+          const src = saw * (1 - br) + w * br * 1.6;
+          let y = f1.p(src) + f2.p(src) * g2 + f3.p(src) * g3;
+          if (rough) { rg += (w - rg) * 0.025; y *= 1 + rough * rg * 4; }
+          y *= e0 + de * j;
+          if (s.cons && i / sr < consEnd && i / sr >= s.t0 - 0.01) y += cf.p(w) * s.camp * 0.35;
+          lp += (y - lp) * lpA;
+          L[i] += lp * gL * v.gain; Rt[i] += lp * gR * v.gain;
+        }
+      }
+    }
+    return out;
+  }
+  function mkVoice(R, o, segs) {
+    const vt = voiceType(R, o.kid ?? 0.45, o.fem ?? 0.55);
+    const d = Math.pow(R(), o.dpow || 1);
+    return { f0: vt.f0 * (o.f0Mul || 1), fs: vt.fs, kid: vt.kid, seed: (R() * 2147483647) | 1, pan: (R() * 2 - 1) * (o.width ?? 0.9),
+      gain: (0.35 + 0.65 * (1 - d)) * (o.gain || 1), lp: 1600 + (1 - d) * (o.lpMax || 5200), br: o.br, jit: o.jit, bright: o.bright, rough: o.rough, segs };
+  }
+  const pv = (R, list = TALKV) => list[(R() * list.length) | 0];
+  function planBabble(R, dur, o) {
+    const segs = []; let t = -R() * 1.5;
+    while (t < dur) {
+      if (o.laugh && R() < o.laugh) { // a burst of laughter: "ha-ha-ha" with breathy gaps
+        const n = 3 + ((R() * 4) | 0), p0 = (o.p || 1) * (1.25 + R() * 0.25);
+        for (let k = 0; k < n; k++) { segs.push({ t0: t, dur: 0.075 + R() * 0.03, v0: 'a', v1: 'ae', amp: 0.8 - k * 0.1, p0: p0 * (1 - k * 0.03), p1: p0 * (0.95 - k * 0.03), a: 0.012, r: 0.03, br: 0.35, cons: 0.025, camp: 0.25 }); t += 0.15 + R() * 0.03; }
+        t += 0.4 + R() * 1.2; continue;
+      }
+      if (R() < o.talk) {
+        const n = 3 + ((R() * 10) | 0); let pm = (o.p || 1) * (1 + (R() - 0.5) * 0.14);
+        for (let k = 0; k < n && t < dur; k++) {
+          const d = (0.075 + R() * 0.16) * (o.slow || 1);
+          const exc = R() < (o.exclaim || 0);
+          segs.push({ t0: t, dur: exc ? d * 2.2 : d, v0: pv(R), v1: pv(R), amp: exc ? 1 : 0.45 + R() * 0.5, p0: pm * (exc ? 1.3 : 1) * (1 + (R() - 0.5) * 0.1), p1: pm * (exc ? 1.15 : 1) * (1 + (R() - 0.5) * 0.12),
+            a: 0.018, r: exc ? 0.08 : 0.03, cons: R() < 0.55 ? 0.01 + R() * 0.035 : 0, camp: 0.2 + R() * 0.3 });
+          t += (exc ? d * 2.2 : d) + (R() < 0.2 ? 0.03 + R() * 0.12 : 0.006); pm *= 0.988;
+        }
+        t += 0.25 + R() * 1.1;
+      } else t += 0.6 + R() * 2.6;
+    }
+    return segs;
+  }
+  // big shout reaction: cheer ("yeah!/ahh!/wooo"), gasp ("ooh"), groan ("aww"), protest ("eh!")
+  function planReaction(R, kind, o) {
+    const segs = [], react = 0.06 + Math.pow(R(), 2) * (o.spread || 0.35);
+    if (kind === 'cheer') {
+      let t = react; const big = o.big || 1;
+      const v = pv(R, ['a', 'a', 'E', 'ae', 'o', 'e']);
+      const d1 = (0.9 + R() * 1.6) * big;
+      segs.push({ t0: t, dur: d1, v0: v, v1: R() < 0.5 ? v : 'a', amp: 1, p0: 1.35 + R() * 0.2, pm: 1.6 + R() * 0.25, p1: 1.25, pk: 0.25, a: 0.05, r: 0.45, br: 0.1, cons: R() < 0.4 ? 0.03 : 0, camp: 0.4 });
+      t += d1 + 0.05 + R() * 0.3;
+      while (t < o.dur - 0.6) {
+        const fade = Math.max(0, 1 - t / (o.dur * 0.9));
+        if (R() > fade * 1.3) { t += 0.4 + R() * 0.8; continue; }
+        const kk = R();
+        if (kk < 0.4) { // "yeah!" / "hey!"
+          const d = 0.28 + R() * 0.35;
+          segs.push({ t0: t, dur: d, v0: R() < 0.5 ? 'i' : 'e', v1: pv(R, ['a', 'E', 'ae']), amp: 0.7 * fade + 0.2, p0: 1.4, pm: 1.6, p1: 1.2, pk: 0.3, a: 0.03, r: 0.12, br: 0.08, cons: 0.02, camp: 0.3 });
+          t += d + 0.1 + R() * 0.25;
+        } else if (kk < 0.6) { // "wooo"
+          const d = 0.7 + R() * 0.9;
+          segs.push({ t0: t, dur: d, v0: 'u', v1: 'u', amp: 0.6 * fade + 0.2, p0: 1.3, pm: 1.9, p1: 1.6, pk: 0.4, a: 0.08, r: 0.25, br: 0.12 });
+          t += d + 0.2 + R() * 0.4;
+        } else { // excited chatter
+          const n = 2 + ((R() * 5) | 0);
+          for (let k = 0; k < n; k++) { const d = 0.09 + R() * 0.14; segs.push({ t0: t, dur: d, v0: pv(R), v1: pv(R), amp: 0.55 * fade + 0.15, p0: 1.25, p1: 1.15, a: 0.015, r: 0.03, cons: R() < 0.5 ? 0.02 : 0, camp: 0.3 }); t += d + 0.01; }
+          t += 0.2 + R() * 0.4;
+        }
+      }
+    } else if (kind === 'gasp') {
+      const v0 = R() < 0.75 ? 'u' : 'o', d = 0.65 + R() * 0.75;
+      segs.push({ t0: react, dur: d, v0, v1: R() < 0.35 ? 'a' : 'o', amp: 1, p0: 1.15 + R() * 0.15, pm: 1.38 + R() * 0.2, p1: 0.92, pk: 0.18, a: 0.07, r: 0.45, br: 0.22 });
+      if (R() < 0.45) { let t = react + d + 0.05 + R() * 0.2; const n = 2 + ((R() * 4) | 0); for (let k = 0; k < n; k++) { const dd = 0.09 + R() * 0.15; segs.push({ t0: t, dur: dd, v0: pv(R), v1: pv(R), amp: 0.5, p0: 1.15, p1: 1.05, a: 0.015, r: 0.03, cons: R() < 0.5 ? 0.02 : 0, camp: 0.3 }); t += dd + 0.01; } }
+    } else if (kind === 'groan') {
+      const d = 0.9 + R() * 0.8;
+      segs.push({ t0: react, dur: d, v0: 'a', v1: R() < 0.5 ? 'o' : 'u', amp: 0.9, p0: 1.15, pm: 1.2, p1: 0.72, pk: 0.15, a: 0.12, r: 0.5, br: 0.18 });
+    } else if (kind === 'protest') {
+      let t = react; const n = 1 + ((R() * 2.2) | 0);
+      for (let k = 0; k < n; k++) { const d = 0.2 + R() * 0.25; segs.push({ t0: t, dur: d, v0: R() < 0.5 ? 'E' : 'e', v1: R() < 0.5 ? 'E' : 'a', amp: 1 - k * 0.25, p0: 1.45, pm: 1.55, p1: 1.25, pk: 0.3, a: 0.03, r: 0.1, br: 0.1, cons: R() < 0.5 ? 0.02 : 0, camp: 0.35 }); t += d + 0.08 + R() * 0.2; }
+    }
+    return segs;
+  }
+  // single fans shouting short Mandarin-like cheers. Syllable = [v0, v1, p0, pm, p1] (pitch multipliers; pm = peak).
+  // 0 jia-you 1 hao-qiu 2 she-men 3 kuai-pao 4 jia-you-a 5 chong-a 6 hao! 7 ding-zhu 8 jia-you jia-you (quick double)
+  const SHOUTS = [
+    [['i', 'a', 1, 1, 1], ['i', 'o', 0.92, 1.12, 1.08]], [['a', 'o', 1.05, 0.9, 1.0], ['i', 'u', 0.95, 1.15, 1.12]], [['er', 'E', 1.15, 0.92, 0.88], ['E', 'er', 0.9, 1.1, 1.08]],
+    [['u', 'a', 1.15, 1.0, 0.88], ['a', 'o', 0.95, 0.88, 1.05]], [['i', 'a', 1, 1.02, 1], ['i', 'o', 0.95, 1.12, 1.06], ['a', 'a', 1.08, 1.0, 0.82]], [['o', 'o', 1.12, 1.06, 0.96], ['a', 'a', 1.2, 1.1, 0.8]],
+    [['a', 'o', 1.0, 1.28, 0.86]], [['i', 'i', 1.22, 1.02, 0.88], ['u', 'u', 1.05, 0.95, 0.9]], [['i', 'a', 1, 1, 1], ['i', 'o', 0.95, 1.08, 1.04], ['i', 'a', 1.02, 1.02, 1.0], ['i', 'o', 0.95, 1.14, 1.1]]];
+  function planShout(R, kid, pat = 0, o = {}) {
+    const segs = [], P = SHOUTS[pat % SHOUTS.length], chant = pat === 0 || pat === 5;
+    const reps = chant ? 1 + ((R() * 2.6) | 0) : R() < 0.15 ? 2 : 1, tempo = o.tempo || (0.82 + R() * 0.4), p = (kid ? 1.0 : 1.2) * (o.pitch || (0.86 + R() * 0.28));
+    let t = 0.05 + R() * 0.08;
+    for (let k = 0; k < reps && t < 2.4; k++) {
+      const tired = 1 - k * (0.04 + R() * 0.05);          // later repeats a little lower and softer
+      P.forEach((sy, j) => {
+        const last = j === P.length - 1, d = (last ? 0.3 + R() * 0.2 : 0.16 + R() * 0.12) * tempo, pj = p * tired * (1 + (R() - 0.5) * 0.08);
+        segs.push({ t0: t, dur: d, v0: sy[0], v1: sy[1], amp: (last ? 0.95 : 1) * tired * (0.85 + R() * 0.15), p0: pj * sy[2], pm: pj * sy[3] * (last ? 1 + R() * 0.06 : 1), p1: pj * sy[4],
+          pk: last ? 0.45 + R() * 0.25 : 0.3 + R() * 0.2, a: 0.015 + R() * 0.015, r: last ? 0.08 + R() * 0.1 : 0.04, br: 0.06 + R() * 0.08, cons: j === 0 || R() < 0.4 ? 0.02 + R() * 0.01 : 0, camp: 0.35 + R() * 0.2 });
+        t += d + (0.03 + R() * 0.06) * tempo;
+      });
+      t += (0.18 + R() * 0.22) * tempo;
+    }
+    return segs;
+  }
+  function crowdVoices(sr, dur, R, o) {
+    const N = Math.ceil(dur * sr), out = stereo(N), vs = [];
+    for (let i = 0; i < o.n; i++) {
+      const segs = o.plan(i);
+      vs.push(mkVoice(R, o, segs));
+    }
+    return renderVoices(sr, N, vs, out);
+  }
+  // people whistling in the stands (wolf whistles / long whistles)
+  function addFanWhistles(ch, sr, R, n, t0, span, amp) {
+    const N = ch[0].length;
+    for (let k = 0; k < n; k++) {
+      const st = t0 + R() * span, wolf = R() < 0.5, f = 1500 + R() * 1200, d = wolf ? 0.7 : 0.5 + R() * 0.9, [gL, gR] = panG(R() * 1.6 - 0.8), a = amp * (0.4 + R() * 0.6), nz = noiseGen(k + 9);
+      let ph = 0; const i0 = Math.floor(st * sr), i1 = Math.min(N, i0 + Math.floor(d * sr));
+      for (let i = i0; i < i1; i++) {
+        const u = (i - i0) / (i1 - i0);
+        let fr = wolf ? (u < 0.3 ? f * 0.75 + f * 0.75 * sm(u / 0.3) : f * 1.5 - f * 0.7 * sm((u - 0.3) / 0.7)) : f * (1 + 0.04 * Math.sin(u * 9));
+        fr *= 1 + 0.004 * Math.sin(TAU * 6 * i / sr);
+        ph += fr / sr;
+        const e = Math.min(1, u / 0.06, (1 - u) / 0.15) * (wolf && u > 0.26 && u < 0.34 ? 0.3 : 1);
+        const y = (Math.sin(TAU * ph) + nz() * 0.05) * e * a;
+        ch[0][i] += y * gL; ch[1][i] += y * gR;
+      }
+    }
+  }
+  // ---------- applause (individual clappers -> grouped band-pass) ----------
+  function synthApplause(sr, dur, R, o) {
+    const N = Math.ceil(dur * sr), G = 10, groups = [];
+    for (let g = 0; g < G; g++) groups.push({ ch: stereo(N), f: 700 + R() * 1900, q: 1.8 + R() * 3.5 });
+    const nz = noiseGen(77 + ((R() * 999) | 0));
+    for (let c = 0; c < o.n; c++) {
+      const g = groups[(R() * G) | 0], [gL, gR] = panG((R() * 2 - 1) * 0.95), a = 0.3 + R() * 0.7, rate = (o.rate || 3.6) * (0.75 + R() * 0.5);
+      const ts = (o.start || 0) + Math.pow(R(), 1.5) * (o.startSpread || 0.4), te = dur - (o.tail || 1) * Math.pow(R(), 0.7) - 0.05;
+      const decay = (0.0035 + R() * 0.006) * sr;
+      let t = ts;
+      while (t < te) {
+        const lvl = o.env ? o.env(t) : 1;
+        if (R() < lvl * 1.15) {
+          const i0 = Math.floor(t * sr), len = Math.floor(decay * 7), amp = a * (0.6 + R() * 0.4) * Math.min(1, lvl * 1.4);
+          for (let j = 0; j < len && i0 + j < N; j++) { const e = (j < 20 ? j / 20 : 1) * Math.exp(-j / decay); const y = nz() * e * amp; g.ch[0][i0 + j] += y * gL; g.ch[1][i0 + j] += y * gR; }
+        }
+        t += (1 / rate) * (1 + (R() - 0.5) * 0.16) / Math.max(0.55, Math.min(1, lvl + 0.3));
+      }
+    }
+    const out = stereo(N);
+    for (const g of groups) for (let c = 0; c < 2; c++) { const a = g.ch[c]; filtArr(a, 'bp', g.f, g.q, sr); filtArr(a, 'hp', 280, 0.7, sr); for (let i = 0; i < N; i++) out[c][i] += a[i]; }
+    return out;
+  }
+  // ---------- referee whistle ----------
+  function synthWhistle(sr, R, o) {
+    const blasts = o.blasts, end = blasts.reduce((m, b) => Math.max(m, b[0] + b[1]), 0) + 0.15, N = Math.ceil(end * sr), out = stereo(N), nz = noiseGen(5 + ((R() * 1e6) | 0));
+    const f0 = (o.f || 2950) * (1 + (R() - 0.5) * 0.03);
+    for (const [st, d, amp] of blasts) {
+      const i0 = Math.floor(st * sr), i1 = Math.min(N, i0 + Math.floor(d * sr)), bf = new Filt().set('bp', f0, 3, sr), hf = new Filt().set('hp', 5000, 0.7, sr);
+      let ph = 0, tph = R(), trate = 40 + R() * 12, sl = 0; const fb = 1 + (R() - 0.5) * 0.03;
+      for (let i = i0; i < i1; i++) {
+        const t = (i - i0) / sr, u = (i - i0) / (i1 - i0);
+        let fr, a;
+        if (o.kind === 'fox') {
+          fr = f0 * (1 + 0.02 * Math.min(1, t / 0.03) - 0.02);
+          ph += fr / sr;
+          const y0 = Math.sin(TAU * ph) + 0.8 * Math.sin(TAU * ph * 0.835 + 1) + 0.6 * Math.sin(TAU * ph * 1.19 + 2);
+          a = Math.min(1, t / 0.012, (d - t) / 0.03) * amp;
+          const y = (y0 * 0.45 + bf.p(nz()) * 0.25) * a;
+          out[0][i] += y; out[1][i] += y; continue;
+        }
+        sl += (nz() - sl) * 0.002;
+        tph += (trate * (1 + sl * 0.6)) / sr;
+        const m = 0.5 + 0.5 * Math.sin(TAU * tph), mm = m * m;
+        const scoop = 1 - 0.07 * Math.exp(-t / 0.025);
+        fr = f0 * fb * scoop * (1 + 0.035 * mm - 0.015 + sl * 0.02) * (1 - 0.01 * u);
+        ph += fr / sr;
+        a = Math.min(1, t / 0.014, (d - t) / 0.045) * amp * (0.62 + 0.38 * mm) * (1 - 0.15 * u);
+        const wn = nz(); const y = (Math.sin(TAU * ph) + 0.08 * Math.sin(2 * TAU * ph) + 0.02 * Math.sin(3 * TAU * ph)) * 0.7 + bf.p(wn) * (0.55 + 0.4 * mm) + hf.p(wn) * 0.08;
+        out[0][i] += y * a; out[1][i] += y * a;
+      }
+    }
+    return normPeak(out, 0.85);
+  }
+  // ---------- ball / impacts ----------
+  // o: {th:[f0,f1,dec,amp], modes:[[f,dec,amp]], click:[hpF,dec,amp], nb:[bpF,Q,dec,amp], lp, len}
+  function synthImpact(sr, R, o) {
+    const len = o.len || 0.35, N = Math.ceil(len * sr), out = new Float32Array(N), nz = noiseGen(3 + ((R() * 1e6) | 0));
+    const v = 1 + (R() - 0.5) * 0.08;
+    if (o.th) { const [fa, fb, dec, amp] = o.th; let ph = 0; for (let i = 0; i < N; i++) { const t = i / sr, f = (fb + (fa - fb) * Math.exp(-t / (dec * 0.5))) * v; ph += f / sr; out[i] += Math.sin(TAU * ph) * amp * Math.exp(-t / dec) * Math.min(1, t / 0.0015); } }
+    if (o.modes) for (const [f, dec, amp] of o.modes) { const fr = f * v * (1 + (R() - 0.5) * 0.04), d2 = fr * (1 + 0.003); for (let i = 0; i < N; i++) { const t = i / sr; out[i] += (Math.sin(TAU * fr * t) + 0.5 * Math.sin(TAU * d2 * t + 1)) * 0.67 * amp * Math.exp(-t / dec) * Math.min(1, t / 0.0008); } }
+    if (o.click) { const [f, dec, amp] = o.click, F = new Filt().set('hp', f, 0.7, sr); for (let i = 0; i < N; i++) { const t = i / sr; out[i] += F.p(nz()) * amp * Math.exp(-t / dec); } }
+    if (o.nb) for (const nb of (Array.isArray(o.nb[0]) ? o.nb : [o.nb])) { const [f, q, dec, amp, att] = nb, F = new Filt().set('bp', f * v, q, sr); for (let i = 0; i < N; i++) { const t = i / sr; out[i] += F.p(nz()) * amp * Math.exp(-t / dec) * Math.min(1, t / (att || 0.001)); } }
+    if (o.lp) filtArr(out, 'lp', o.lp, 0.7, sr);
+    // gentle fade at the end
+    const fo = Math.floor(0.02 * sr); for (let i = 0; i < fo; i++) out[N - 1 - i] *= i / fo;
+    const p = peak([out]); if (p > 0) for (let i = 0; i < N; i++) out[i] *= 0.9 / p;
+    return [out, out.slice()];
+  }
+  const SURF_SND = {
+    // bounce: dull thud / bright slap / soft thup / hollow wood bonk
+    rubber:  { bounce: { th: [150, 72, 0.055, 1], modes: [[380, 0.018, 0.25]], click: [2500, 0.002, 0.15], lp: 2600 }, roll: 'rubber', send: 0.12, squeak: 0.5 },
+    asphalt: { bounce: { th: [170, 85, 0.04, 0.9], modes: [[440, 0.045, 0.45], [760, 0.03, 0.3], [1250, 0.02, 0.2]], click: [3000, 0.003, 0.55], nb: [4200, 1, 0.025, 0.12] }, roll: 'asphalt', send: 0.16, squeak: 0.15 },
+    turf:    { bounce: { th: [115, 60, 0.05, 1], nb: [2600, 0.9, 0.035, 0.28, 0.004], lp: 1100 }, roll: 'turf', send: 0.08, squeak: 0 },
+    parquet: { bounce: { th: [145, 92, 0.07, 1], modes: [[96, 0.2, 0.45], [212, 0.14, 0.35], [470, 0.06, 0.25]], click: [2000, 0.003, 0.3] }, roll: 'parquet', send: 0.32, squeak: 1 },
+  };
+  function synthKick(sr, R, surface, power) {
+    const hard = power > 0.6;
+    const o = { th: [hard ? 200 : 170, 80, hard ? 0.035 : 0.028, 1], modes: [[400 + R() * 60, 0.025, hard ? 0.35 : 0.22], [700 + R() * 80, 0.018, 0.18], [1180, 0.012, 0.1]], click: [hard ? 3500 : 3000, hard ? 0.004 : 0.0025, hard ? 0.9 : 0.45], nb: [[1500, 1.2, 0.008, hard ? 0.45 : 0.3], [2600, 1, 0.004, hard ? 0.6 : 0.35]] };
+    if (surface === 'turf') o.nb.push([3000, 0.8, 0.06, 0.2, 0.01]);
+    if (surface === 'parquet') o.modes.push([105, 0.12, 0.18]);
+    if (surface === 'asphalt') o.nb.push([5000, 0.8, 0.03, 0.1, 0.004]);
+    o.len = 0.3;
+    return synthImpact(sr, R, o);
+  }
+  function synthRoll(sr, R, surface) {
+    const dur = 2.6, N = Math.ceil(dur * sr), ch = stereo(N), nz = noiseGen(11 + surface.length);
+    const a = ch[0];
+    if (surface === 'asphalt') { const F = new Filt().set('bp', 2600, 0.8, sr), G = new Filt().set('lp', 500, 0.7, sr); for (let i = 0; i < N; i++) { const imp = R() < 0.03 ? nz() * 3 : 0; a[i] = F.p(nz() * 0.3 + imp) + G.p(nz()) * 0.8; } }
+    else if (surface === 'turf') { const F = new Filt().set('bp', 4200, 0.7, sr); let am = 0; for (let i = 0; i < N; i++) { am += ((R() < 0.002 ? 1 : 0) - am) * 0.004; a[i] = F.p(nz()) * (0.4 + am * 3); } }
+    else if (surface === 'parquet') { const F = new Filt().set('lp', 260, 0.8, sr), H = new Filt().set('bp', 180, 4, sr); for (let i = 0; i < N; i++) { const w = nz(); a[i] = F.p(w) * 1.4 + H.p(w) * 0.6; } }
+    else { const F = new Filt().set('lp', 380, 0.7, sr), H = new Filt().set('bp', 900, 1.5, sr); for (let i = 0; i < N; i++) { const w = nz(); a[i] = F.p(w) + H.p(R() < 0.01 ? w * 4 : 0) * 0.3; } }
+    ch[1].set(a);
+    for (let i = 0; i < N; i++) ch[1][i] = ch[1][(i + 997) % N];
+    return normRMS(makeLoop(ch, sr, 0.5), 0.25);
+  }
+  function synthClang(sr, R) { // ball on aluminium post
+    const o = { th: [180, 80, 0.04, 0.8], modes: [[520, 0.9, 1], [1265, 0.55, 0.6], [2240, 0.36, 0.45], [3420, 0.22, 0.32], [4860, 0.13, 0.2]].map(m => [m[0] * (0.97 + R() * 0.06), m[1], m[2]]), click: [3000, 0.002, 0.6], len: 1.4 };
+    return synthImpact(sr, R, o);
+  }
+  function synthNet(sr, R) {
+    const dur = 0.9, N = Math.ceil(dur * sr), ch = stereo(N), nz = noiseGen(21 + ((R() * 1e5) | 0));
+    let ph = 0; const F = new Filt();
+    for (let i = 0; i < N; i++) {
+      const t = i / sr;
+      if (i % 64 === 0) F.set('bp', 1800 + 2600 * Math.min(1, t / 0.05), 0.9, sr);
+      let y = F.p(nz()) * (Math.exp(-t / 0.11) + 0.25 * Math.exp(-t / 0.4)) * Math.min(1, t / 0.002) * 0.8;
+      ph += (110 - 40 * t) / sr; y += Math.sin(TAU * ph) * Math.exp(-t / 0.06) * Math.min(1, t / 0.001) * 0.9;
+      if (R() < 0.02 * Math.exp(-t / 0.25)) y += nz() * 0.9; // net hooks / chain ticks
+      ch[0][i] = y; ch[1][i] = y * 0.9;
+    }
+    filtArr(ch[0], 'hp', 60, 0.7, sr); filtArr(ch[1], 'hp', 60, 0.7, sr);
+    return normPeak(ch, 0.85);
+  }
+  function synthFence(sr, R) { // chain-link fence rattle
+    const dur = 0.9, N = Math.ceil(dur * sr), ch = stereo(N), nz = noiseGen(31 + ((R() * 1e5) | 0)), bank = [];
+    for (let k = 0; k < 6; k++) bank.push(new Filt().set('bp', 1800 + R() * 4500, 18, sr));
+    let ph = 0;
+    for (let i = 0; i < N; i++) {
+      const t = i / sr; let ex = R() < 0.06 * Math.exp(-t / 0.22) ? nz() * 3 : 0;
+      let y = 0; for (const f of bank) y += f.p(ex);
+      ph += 82 / sr; y += Math.sin(TAU * ph) * Math.exp(-t / 0.22) * 0.5;
+      ch[0][i] = y; ch[1][i] = y;
+    }
+    return normPeak(ch, 0.8);
+  }
+  function synthSqueak(sr, R) {
+    const d = 0.08 + R() * 0.14, N = Math.ceil((d + 0.03) * sr), out = new Float32Array(N), f0 = 1700 + R() * 1200, up = R() < 0.5;
+    let ph = 0;
+    for (let i = 0; i < N; i++) { const t = i / sr, u = Math.min(1, t / d); const f = f0 * (up ? 1 + 0.25 * u : 1.2 - 0.25 * u) * (1 + 0.05 * Math.sin(TAU * 55 * t)); ph += f / sr; const e = Math.min(1, t / 0.01, Math.max(0, (d - t) / 0.03)); out[i] = (Math.sin(TAU * ph) + 0.35 * Math.sin(2 * TAU * ph) + 0.15 * Math.sin(3 * TAU * ph)) * e; }
+    normPeak([out], 0.7); return [out, out.slice()];
+  }
+  function irAir(sr, R) { // open air + short slap-back from the school building
+    const dur = 1.1, N = Math.ceil(dur * sr), ch = stereo(N), nz = noiseGen(41);
+    for (let c = 0; c < 2; c++) {
+      const F = new Filt().set('lp', 3800, 0.6, sr);
+      for (let i = 0; i < N; i++) { const t = i / sr; ch[c][i] = F.p(nz()) * Math.exp(-t / 0.22) * (t > 0.012 ? 1 : 0) * 0.35; }
+      const e1 = Math.floor((0.085 + c * 0.011) * sr), e2 = Math.floor((0.16 + c * 0.017) * sr);
+      ch[c][e1] += 0.45; ch[c][e2] += 0.25; ch[c][0] += 0;
+    }
+    return ch;
+  }
+  // classic "noise band" crowd (kept only as a blind-test reference)
+  function synthNoiseCrowd(sr, dur, R) {
+    const N = Math.ceil(dur * sr), ch = stereo(N);
+    for (let c = 0; c < 2; c++) {
+      const nz = noiseGen(51 + c), bands = [[420, 1.2], [900, 1.4], [1800, 1.6], [3000, 2]].map(([f, q]) => ({ F: new Filt().set('bp', f, q, sr), am: 0, tgt: 0 }));
+      for (let i = 0; i < N; i++) { const w = nz(); let y = 0; for (const b of bands) { if (i % 2205 === 0) b.tgt = 0.4 + R() * 0.6; b.am += (b.tgt - b.am) * 0.0004; y += b.F.p(w) * b.am; } ch[c][i] = y; }
+    }
+    return normRMS(makeLoop(ch, sr, 1.0), 0.1);
+  }
+
+  // ---------- recipe list (what Engine.init renders) ----------
+  const CSR = 22050; // crowd sample rate (resampled by Web Audio)
+  function crowdRecipes(R) {
+    const L = [];
+    const babble = (name, n, o) => L.push({ name, crowd: true, make: () => { const ch = crowdVoices(CSR, 15, R, { n, kid: 0.5, fem: 0.55, width: 0.95, gain: 1, bright: 0.35, jit: 0.03, br: 0.03, dpow: 1.6, lpMax: 6500, plan: () => planBabble(R, 15, o) }); ch.forEach(c => filtArr(c, 'hp', 150, 0.7, CSR)); return normRMS(makeLoop(ch, CSR, 1.5), 0.1); } });
+    babble('murmur0', 18, { talk: 0.5, slow: 1, laugh: 0.06 });
+    babble('murmur1', 18, { talk: 0.5, slow: 1.05, laugh: 0.06 });
+    babble('excited0', 34, { talk: 0.85, slow: 0.9, p: 1.15, exclaim: 0.18 });
+    babble('excited1', 34, { talk: 0.85, slow: 0.95, p: 1.18, exclaim: 0.2 });
+    for (let k = 0; k < 3; k++) L.push({ name: 'cheer' + k, crowd: true, make: () => { const dur = 7; const ch = crowdVoices(CSR, dur, R, { n: 46, kid: 0.5, fem: 0.55, br: 0.22, jit: 0.06, bright: 0.45, rough: 0.5, plan: () => planReaction(R, 'cheer', { dur, big: 1, spread: 0.35 }) }); addFanWhistles(ch, CSR, R, 2 + ((R() * 3) | 0), 0.4, 3, 0.06); return normRMS(ch, 0.16); } });
+    for (let k = 0; k < 3; k++) L.push({ name: 'gasp' + k, crowd: true, make: () => normRMS(crowdVoices(CSR, 2.6, R, { n: 34, kid: 0.5, fem: 0.55, br: 0.3, jit: 0.04, rough: 0.25, plan: () => planReaction(R, 'gasp', { spread: 0.28 }) }), 0.12) });
+    for (let k = 0; k < 2; k++) L.push({ name: 'groan' + k, crowd: true, make: () => normRMS(crowdVoices(CSR, 2.4, R, { n: 26, kid: 0.4, fem: 0.5, br: 0.2, plan: () => planReaction(R, 'groan', { spread: 0.3 }) }), 0.1) });
+    for (let k = 0; k < 2; k++) L.push({ name: 'protest' + k, crowd: true, make: () => normRMS(crowdVoices(CSR, 1.6, R, { n: 22, kid: 0.35, fem: 0.45, br: 0.1, plan: () => planReaction(R, 'protest', { spread: 0.3 }) }), 0.1) });
+    // 24 individual shouts: 9 phrases x kid/adult x 1-3 voices, each with its own tempo, pitch, repeats and timbre (fewer audible repeats)
+    for (let k = 0; k < 24; k++) L.push({ name: 'shout' + k, crowd: true, make: () => {
+      const kid = R() < 0.62, nv = R() < 0.45 ? 1 : R() < 0.6 ? 2 : 3, pat = (k * 5) % SHOUTS.length, tempo = 0.82 + R() * 0.4, pitch = 0.86 + R() * 0.28;
+      const ch = crowdVoices(CSR, 3, R, { n: nv, kid: kid ? 1 : 0.25, fem: R(), width: 0.3 + R() * 0.4, br: 0.06 + R() * 0.1, jit: 0.03 + R() * 0.03, rough: 0.1 + R() * 0.25, bright: 0.18 + R() * 0.2,
+        plan: i => planShout(R, kid, pat, { tempo: tempo * (1 + (R() - 0.5) * 0.06), pitch: pitch * (1 + (R() - 0.5) * 0.12) }).map(sg => Object.assign(sg, { t0: sg.t0 + i * (0.03 + R() * 0.08) })) });
+      return normPeak(ch, 0.55 + R() * 0.2); } });
+    L.push({ name: 'applause0', crowd: true, make: () => normRMS(synthApplause(CSR, 7, R, { n: 34, rate: 3.8, startSpread: 0.6, tail: 3.5, env: t => t < 1.5 ? 1 : Math.max(0, 1 - (t - 1.5) / 5) }), 0.12) });
+    L.push({ name: 'applause1', crowd: true, make: () => normRMS(synthApplause(CSR, 5, R, { n: 22, rate: 3.4, startSpread: 0.5, tail: 2.5, env: t => Math.max(0, 1 - t / 4.6) }), 0.1) });
+    return L;
+  }
+  function sfxRecipes(R, sr) {
+    const L = [];
+    const push = (name, make) => L.push({ name, make });
+    for (const s of Object.keys(SURF_SND)) {
+      for (let k = 0; k < 3; k++) push(`bounce_${s}${k}`, () => synthImpact(sr, R, SURF_SND[s].bounce));
+      for (let k = 0; k < 5; k++) push(`kickS_${s}${k}`, () => synthKick(sr, R, s, 0.25 + 0.1 * k));
+      for (let k = 0; k < 4; k++) push(`kickH_${s}${k}`, () => synthKick(sr, R, s, 0.8 + 0.06 * k));
+      push(`roll_${s}`, () => synthRoll(sr, R, s));
+    }
+    for (let k = 0; k < 3; k++) push('wShort' + k, () => synthWhistle(sr, R, { blasts: [[0, 0.32 + R() * 0.12, 1]] }));
+    for (let k = 0; k < 2; k++) push('wLong' + k, () => synthWhistle(sr, R, { blasts: [[0, 0.8 + R() * 0.25, 1]] }));
+    push('wHalf', () => synthWhistle(sr, R, { blasts: [[0, 0.45, 1], [0.62, 1.1, 1]] }));
+    push('wFull', () => synthWhistle(sr, R, { blasts: [[0, 0.42, 1], [0.6, 0.42, 1], [1.2, 1.4, 1]] }));
+    for (let k = 0; k < 2; k++) push('clang' + k, () => synthClang(sr, R));
+    for (let k = 0; k < 2; k++) push('net' + k, () => synthNet(sr, R));
+    for (let k = 0; k < 2; k++) push('fence' + k, () => synthFence(sr, R));
+    for (let k = 0; k < 4; k++) push('squeak' + k, () => synthSqueak(sr, R));
+    for (let k = 0; k < 5; k++) push('catch' + k, () => synthImpact(sr, R, { th: [115 + R() * 30, 65 + R() * 10, 0.04 + R() * 0.02, 0.6 + R() * 0.2], modes: [[560 + R() * 140, 0.015, 0.2]], nb: [[950 + R() * 400, 0.9, 0.018 + R() * 0.01, 1]], len: 0.3 }));
+    for (let k = 0; k < 2; k++) push('parry' + k, () => synthImpact(sr, R, { th: [175, 80, 0.045, 0.9], modes: [[430, 0.03, 0.35], [720, 0.02, 0.2]], click: [3000, 0.003, 0.5], nb: [[1300, 1, 0.015, 0.8]], len: 0.3 }));
+    for (let k = 0; k < 6; k++) push('trap' + k, () => synthImpact(sr, R, { th: [125 + R() * 35, 65 + R() * 10, 0.03 + R() * 0.012, 1], modes: [[360 + R() * 80, 0.012 + R() * 0.008, 0.1 + R() * 0.1]], nb: [[800 + R() * 500, 1, 0.01 + R() * 0.006, 0.25 + R() * 0.15]], lp: 1800 + R() * 900, len: 0.2 }));
+    for (let k = 0; k < 3; k++) push('scuff' + k, () => synthImpact(sr, R, { th: [85, 55, 0.06, 0.7], nb: [[1500, 0.7, 0.07, 0.6, 0.01], [3500, 0.8, 0.04, 0.25, 0.01]], len: 0.3 }));
+    return L;
+  }
+
+  // ---------- synthesis of every buffer (runs in a Web Worker when possible) ----------
+  const SYN_SEED = 1212;
+  function renderAll(seed, sr, onStep) {
+    const R = mulberry(seed), list = [...sfxRecipes(R, sr), ...crowdRecipes(R)], out = {};
+    out.__ir = { ch: irAir(sr, R), sr };
+    list.forEach((r, i) => { out[r.name] = { ch: r.make(), sr: r.crowd ? CSR : sr }; if (onStep) onStep((i + 1) / list.length); });
+    return out;
+  }
+  const CACHE = new Map();
+  function synthAll(seed, sr, progress) {
+    const key = seed + '|' + sr;
+    if (CACHE.has(key)) return CACHE.get(key);
+    const pr = new Promise((resolve) => {
+      let w = null;
+      try {
+        if (typeof Worker !== 'undefined' && typeof Blob !== 'undefined' && typeof URL !== 'undefined') {
+          const src = 'const SND=(' + SND_FACTORY.toString() + ')();onmessage=e=>{const o=SND.renderAll(e.data.seed,e.data.sr,p=>postMessage({p}));const tr=[];for(const k in o)for(const c of o[k].ch)tr.push(c.buffer);postMessage({o},tr);};';
+          const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+          w = new Worker(url); URL.revokeObjectURL(url);
+        }
+      } catch (e) { w = null; }
+      if (!w) { resolve(renderAll(seed, sr, progress)); return; }
+      w.onmessage = e => { if (e.data.p != null) { if (progress) progress(e.data.p); return; } w.terminate(); resolve(e.data.o); };
+      w.onerror = () => { w.terminate(); resolve(renderAll(seed, sr, progress)); };
+      w.postMessage({ seed, sr });
+    });
+    CACHE.set(key, pr);
+    return pr;
+  }
+
+  // ---------- Engine (graph + director) ----------
+  class Engine {
+    constructor(ctx, o = {}) {
+      this.ctx = ctx; this.o = o; this.R = mulberry(o.seed != null ? o.seed : (Math.random() * 1e9) | 0);
+      this.buf = {}; this.ready = false; this.started = false; this.react = []; this.last = {}; this.recs = o.recs || null; this.crowdMode = o.crowd || 'synth'; this.whistleMode = o.whistle || 'synth';
+      // per-layer source: o.src = {bed, whistle, gasp, groan, cheer, applause} each 'synth' | 'rec'; otherwise derived from the legacy crowd/whistle modes
+      this.src = Object.assign(Engine.srcFromModes(this.crowdMode, this.whistleMode), o.src || {});
+      const c = ctx;
+      this.limiter = c.createDynamicsCompressor();
+      Object.assign(this.limiter, {}); this.limiter.threshold.value = -6; this.limiter.knee.value = 6; this.limiter.ratio.value = 8; this.limiter.attack.value = 0.003; this.limiter.release.value = 0.2;
+      this.master = c.createGain(); this.master.gain.value = o.volume != null ? o.volume : 0.8;
+      this.master.connect(this.limiter); this.limiter.connect(c.destination);
+      this.sfx = c.createGain(); this.sfx.gain.value = 1; this.sfx.connect(this.master);
+      this.crowd = c.createGain(); this.crowd.gain.value = 1; this.crowd.connect(this.master);
+      this.duck = c.createGain(); this.duck.gain.value = 1; this.duck.connect(this.crowd);
+      this.verb = c.createConvolver(); this.verbRet = c.createGain(); this.verbRet.gain.value = 0.5; this.verb.connect(this.verbRet); this.verbRet.connect(this.master);
+      this.send = c.createGain(); this.send.gain.value = 1; this.send.connect(this.verb);
+      this.stands = (o.stands || [{ pan: -0.65, home: 0.5, w: 1 }, { pan: 0, home: 0.5, w: 1 }, { pan: 0.65, home: 0.5, w: 1 }]).map((s, i) => {
+        const pan = c.createStereoPanner(), g = c.createGain(), mur = c.createGain(), ten = c.createGain(), rx = c.createGain();
+        pan.pan.value = s.pan; g.gain.value = s.w; mur.gain.value = 0; ten.gain.value = 0; rx.gain.value = 1;
+        mur.connect(pan); ten.connect(pan); rx.connect(pan); pan.connect(g); g.connect(this.duck);
+        return { i, pan, g, mur, ten, rx, home: s.home, w: s.w };
+      });
+      this.rollG = c.createGain(); this.rollG.gain.value = 0; this.rollPan = c.createStereoPanner(); this.rollG.connect(this.rollPan); this.rollPan.connect(this.sfx);
+      this.surface = o.surface || 'rubber'; this.amb = 1; this.tension = 0; this.lastTenT = -1;
+    }
+    get time() { return this.ctx.currentTime; }
+    setVolume(v, when) { const t = when != null ? when : this.ctx.currentTime; this.master.gain.setTargetAtTime(v, t, 0.05); }
+    toBuffer(ch, sr) { const b = this.ctx.createBuffer(ch.length, ch[0].length, sr); ch.forEach((c, i) => b.copyToChannel(c, i)); return b; }
+    // CC0 recordings: one MP3 sprite + {name:[start,dur]} map -> this.recs[prefix] = [AudioBuffer...]
+    async loadRecs(src, map) {
+      const ab = typeof src === 'string' ? await (await fetch(src)).arrayBuffer() : src.slice(0);
+      const whole = await new Promise((res, rej) => { const p = this.ctx.decodeAudioData(ab, res, rej); if (p && p.then) p.then(res, rej); });
+      const recs = {}, sr = whole.sampleRate;
+      for (const [name, [st, d]] of Object.entries(map)) {
+        const i0 = Math.floor(st * sr), n = Math.min(Math.floor(d * sr), whole.length - i0); if (n <= 0) continue;
+        const b = this.ctx.createBuffer(whole.numberOfChannels, n, sr);
+        for (let c = 0; c < whole.numberOfChannels; c++) b.copyToChannel(whole.getChannelData(c).subarray(i0, i0 + n), c);
+        const pre = name.replace(/\d+$/, ''); (recs[pre] = recs[pre] || []).push(b);
+      }
+      this.recs = recs; return recs;
+    }
+    recPick(prefix) { const a = this.recs && this.recs[prefix]; if (!a || !a.length) return null; let k = (this.R() * a.length) | 0; if (a.length > 1 && k === this.last['r' + prefix]) k = (k + 1) % a.length; this.last['r' + prefix] = k; return a[k]; }
+    static srcFromModes(crowd, whistle) { const r = crowd === 'rec', h = r || crowd === 'hybrid', v = x => x ? 'rec' : 'synth'; return { bed: v(r), gasp: v(h), groan: v(h), cheer: v(h), applause: v(h), whistle: v(whistle === 'rec') }; }
+    needsRecs() { return Object.values(this.src).includes('rec'); }
+    allSynth() { for (const k in this.src) this.src[k] = 'synth'; this.crowdMode = this.whistleMode = 'synth'; }
+    // a layer uses its recording only when asked to AND the recording actually loaded (otherwise: synthesis)
+    useRec(prefix) { const layer = prefix === 'murmur' ? 'bed' : prefix; return this.src[layer] === 'rec' && !!(this.recs && this.recs[prefix] && this.recs[prefix].length); }
+    async init(progress) {
+      const all = await synthAll(this.o.synthSeed || SYN_SEED, this.ctx.sampleRate, progress);
+      for (const k in all) { if (k === '__ir') this.verb.buffer = this.toBuffer(all[k].ch, all[k].sr); else this.buf[k] = this.toBuffer(all[k].ch, all[k].sr); }
+      this.ready = this.essentials = true;
+      return this;
+    }
+    pick(prefix) { // random variant, avoiding the last one used
+      let n = 0; while (this.buf[prefix + n]) n++;
+      if (!n) return null;
+      let k = (this.R() * n) | 0;
+      if (n >= 8) { const h = this.last['h_' + prefix] || (this.last['h_' + prefix] = []); while (h.includes(k)) k = (k + 1) % n; h.push(k); if (h.length > Math.min(6, n >> 1)) h.shift(); }   // big pools: no repeat among the last few
+      else if (n > 1 && k === this.last[prefix]) k = (k + 1) % n;
+      this.last[prefix] = k;
+      return this.buf[prefix + k];
+    }
+    play(buf, when, o = {}) {
+      if (!buf) return null;
+      const c = this.ctx, s = c.createBufferSource(); s.buffer = buf;
+      s.playbackRate.value = o.rate || 1; if (o.loop) s.loop = true;
+      const g = c.createGain(); g.gain.value = o.gain != null ? o.gain : 1;
+      let node = g;
+      if (o.lp) { const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = o.lp; f.Q.value = 0.5; s.connect(f); f.connect(g); } else s.connect(g);
+      if (o.fade) { const t = Math.max(when, c.currentTime); g.gain.setValueAtTime(0, t); g.gain.setTargetAtTime(o.gain != null ? o.gain : 1, t, o.fade); }
+      if (o.pan != null) { const p = c.createStereoPanner(); p.pan.value = clamp(o.pan, -1, 1); g.connect(p); node = p; }
+      node.connect(o.dest || this.sfx);
+      if (o.send) { const sg = c.createGain(); sg.gain.value = o.send; g.connect(sg); sg.connect(this.send); }
+      const off = o.offset || 0;
+      s.start(Math.max(when, c.currentTime), off % buf.duration);
+      if (o.dur) s.stop(Math.max(when, c.currentTime) + o.dur);
+      return { s, g };
+    }
+    // ----- continuous layers -----
+    start(when) {
+      if (this.started) return; this.started = true;
+      const R = this.R;
+      for (const st of this.stands) {
+        const recM = this.useRec('murmur') && st.i < this.recs.murmur.length, m = recM ? this.recs.murmur[st.i] : this.buf['murmur' + (st.i % 2)], e = this.buf['excited' + (st.i % 2)];
+        st.murK = recM ? 1.3 : this.useRec('murmur') ? 0.8 : 1;   // with a recorded bed, an extra stand only adds a little synthetic kids' chatter
+        st.murSrc = this.play(m, when, { loop: true, dest: st.mur, offset: R() * 12 + st.i * 5.3, rate: 0.96 + R() * 0.08, gain: 1, lp: recM ? 3200 : 0 });
+        st.tenSrc = this.play(e, when, { loop: true, dest: st.ten, offset: R() * 12, rate: 0.97 + R() * 0.06, gain: 1 });
+        st.mur.gain.setValueAtTime(0, when); st.mur.gain.setTargetAtTime(0.42 * st.murK * this.amb, when, 1.2);
+      }
+      this.setSurface(this.surface, when);
+    }
+    setSurface(s, when) {
+      if (!SURF_SND[s]) return; this.surface = s;
+      const old = this.rollSrc; if (old) { old.g.gain.setTargetAtTime(0, when, 0.1); try { old.s.stop(when + 1); } catch (e) { } }
+      this.rollSrc = this.play(this.buf['roll_' + s], when, { loop: true, dest: this.rollG, gain: 1 });
+    }
+    update(sn, when, rate = 1) {
+      if (!this.started) return;
+      const k = 1 / Math.max(1, rate);
+      if (sn.surf && sn.surf !== this.surface) this.setSurface(sn.surf, when);
+      // tension envelope: smooth attack, slower release
+      const tt = clamp(sn.tension || 0, 0, 1), amb = sn.amb != null ? sn.amb : 1;
+      if (Math.abs(tt - this.tension) > 0.03 || amb !== this.amb || when - this.lastTenT > 0.5) {
+        const up = tt > this.tension; this.tension = tt; this.amb = amb; this.lastTenT = when;
+        for (const st of this.stands) {
+          st.ten.gain.setTargetAtTime(0.55 * Math.pow(tt, 1.3) * Math.min(1, amb), when, (up ? 0.7 : 2.6) * k);
+          st.mur.gain.setTargetAtTime(0.42 * (st.murK ?? 1) * amb * (1 - 0.2 * tt), when, (up ? 0.9 : 2.6) * k);
+          if (st.tenSrc) st.tenSrc.s.playbackRate.setTargetAtTime(0.98 + 0.06 * tt, when, 0.8 * k);
+        }
+      }
+      if (sn.pans) sn.pans.forEach((p, i) => { const st = this.stands[i]; if (st) st.pan.pan.setTargetAtTime(clamp(p, -0.9, 0.9), when, 0.2); });
+      if (sn.sw) sn.sw.forEach((w, i) => { const st = this.stands[i]; if (st && Math.abs((st.wNow ?? -1) - w) > 0.01) { st.wNow = w; st.g.gain.setTargetAtTime(w, when, 0.3); } });
+      // rolling ball
+      const rv = sn.roll || 0, rg = rate > 3 ? 0 : clamp(rv / 9, 0, 1);
+      this.rollG.gain.setTargetAtTime(0.28 * Math.pow(rg, 1.3), when, 0.05);
+      if (this.rollSrc) this.rollSrc.s.playbackRate.setTargetAtTime(0.75 + 0.06 * Math.min(rv, 9), when, 0.1);
+      if (sn.bpan != null) this.rollPan.pan.setTargetAtTime(clamp(sn.bpan, -0.9, 0.9), when, 0.1);
+    }
+    // crowd reaction: one voice-mass per stand, decorrelated; replaces lower-priority reactions
+    crowdReact(kind, when, strength, weights, o = {}) {
+      const PRIO = { cheer: 4, surge: 3, gasp: 3, groan: 2, protest: 1, shout: 0 };
+      const prio = PRIO[kind] ?? 1, R = this.R;
+      for (const r of this.react) if (r.end > when && r.prio <= prio && !r.keep && r !== o.keep) { r.g.gain.setTargetAtTime(0, when + 0.03, 0.18); r.end = when; }
+      const prefix = kind === 'surge' ? 'cheer' : kind;
+      // a recording already contains a whole crowd: play it on one or two stands only (three copies sound like a stadium)
+      let only = null;
+      if (this.useRec(prefix)) {
+        const n = (kind === 'cheer' && strength > 1) || (kind === 'gasp' && strength >= 1.1) ? 2 : 1;
+        only = new Set(this.stands.map(st => [st.i, (weights ? weights[st.i] : 1) * (st.wNow ?? st.w) + R() * 0.05]).sort((a, b) => b[1] - a[1]).slice(0, n).map(x => x[0]));
+      }
+      for (const st of this.stands) {
+        const w = weights ? weights[st.i] : 1; if (w <= 0.01) continue;
+        if (only && !only.has(st.i)) continue;
+        let buf = null, off = 0, rec = false;
+        if (this.useRec(prefix)) { buf = this.recPick(prefix); rec = !!buf; }
+        if (!buf) buf = this.pick(prefix);
+        if (!buf) continue;
+        const jitter = R() * 0.05, rate = 0.95 + R() * 0.1;
+        const fade = kind === 'surge' ? 0.45 : kind === 'cheer' ? 0.07 : kind === 'shout' ? 0 : 0.035;
+        if (kind === 'surge') off = 0.6 + R() * 0.6;
+        // recorded cheer over the synthesized bed: soften its indoor top end and let its tail melt away slowly (no noise-floor drop at the end)
+        const pl = this.play(buf, when + jitter, { dest: st.rx, gain: strength * w, rate, offset: off, fade, lp: rec && prefix === 'cheer' ? 5200 : 0 });
+        if (!pl) continue;
+        if (rec && prefix === 'cheer') pl.g.gain.setTargetAtTime(0, when + jitter + Math.max(1, (buf.duration - off) / rate - 3.2), 1.1);
+        if (o.fadeAfter) pl.g.gain.setTargetAtTime(0, when + o.fadeAfter, 0.4);
+        this.react.push({ g: pl.g, prio, end: when + buf.duration / rate, kind });
+      }
+      this.react = this.react.filter(r => r.end > this.ctx.currentTime - 1);
+    }
+    applause(when, level, weights, big) {
+      const R = this.R;
+      for (const st of this.stands) {
+        const w = weights ? weights[st.i] : 1; if (w <= 0.01) continue;
+        let buf = this.buf[big ? 'applause0' : 'applause1'], off = 0;
+        if (this.useRec('applause')) { buf = this.recPick('applause'); off = R() * 0.3; }
+        this.play(buf, when + R() * 0.15, { dest: st.rx, gain: level * w, rate: 0.95 + R() * 0.1, offset: off });
+      }
+    }
+    whistle(name, when, gain = 1) {
+      let b = name.endsWith('_') ? this.pick(name.slice(0, -1)) : this.buf[name]; if (!b) return;
+      let dur = b.duration;
+      if (this.useRec('whistle')) {
+        const [w0, w1] = [this.recs.whistle[0], this.recs.whistle[1] || this.recs.whistle[0]];
+        const seq = { wShort_: [[0, w0]], wLong_: [[0, w1]], wHalf: [[0, w0], [0.62, w1]], wFull: [[0, w0], [0.6, w0], [1.2, w1]] }[name] || [[0, w0]];
+        for (const [dt, wb] of seq) this.play(wb, when + dt, { gain: 0.4 * gain, pan: 0.05, send: 0.35, rate: 1 + (this.R() - 0.5) * 0.02, lp: 7000 });
+        dur = seq[seq.length - 1][0] + seq[seq.length - 1][1].duration;
+      } else this.play(b, when, { gain: 0.38 * gain, pan: 0.05, send: 0.35, rate: 1 + (this.R() - 0.5) * 0.02, lp: 6500 });
+      // duck the crowd under the whistle
+      const d = this.duck.gain;
+      if (d.cancelAndHoldAtTime) d.cancelAndHoldAtTime(when); else d.cancelScheduledValues(when);
+      d.setTargetAtTime(0.93, when, 0.25); d.setTargetAtTime(1, when + dur * 0.8, 1.4);   // ~-0.6 dB, slow in/out: no audible pumping
+    }
+    // ----- the director: game events -> layered sound -----
+    event(ev, when, rate = 1) {
+      if (!this.ready && !(this.essentials && /^(kick|bounce|whistle|trap)$/.test(ev.type))) return;
+      const R = this.R, S = SURF_SND[ev.surf || this.surface] || SURF_SND.rubber, surf = ev.surf || this.surface, fast = rate > 3;
+      const gap = (key, g) => { const lt = this.last['t_' + key]; if (lt != null && ev.t - lt < g) return false; this.last['t_' + key] = ev.t; return true; };
+      const W = ev.w || null; // per-stand weights for team-specific reactions
+      switch (ev.type) {
+        case 'kick': {
+          if (ev.kind === 'throw' || fast || !gap('kick', 0.06)) return;
+          const p = clamp(((ev.spd || 6) - 3) / 17, 0, 1), hard = p > 0.55 || ev.kind === 'shot';
+          this.play(this.pick(`${hard ? 'kickH' : 'kickS'}_${surf}`), when, { gain: (0.25 + 0.75 * p) * (0.85 + R() * 0.3), pan: ev.pan, rate: 0.92 + R() * 0.14 - p * 0.04, send: S.send });
+          if (ev.kind === 'shot') { // crowd anticipation swell (rides the tension layer)
+            for (const st of this.stands) { st.ten.gain.cancelScheduledValues(when); st.ten.gain.setTargetAtTime(0.95, when + 0.05, 0.12); st.ten.gain.setTargetAtTime(0.55 * Math.pow(this.tension, 1.3) * Math.min(1, this.amb), when + 1.1, 0.8); }
+            this.lastTenT = when + 1.1;
+          }
+          if (S.squeak && R() < 0.12 * S.squeak) this.play(this.pick('squeak'), when + 0.05 + R() * 0.15, { gain: 0.12, pan: (ev.pan || 0) + (R() - 0.5) * 0.3 });
+          return;
+        }
+        case 'bounce': { if (fast || !gap('bounce', 0.08)) return; const g = clamp((ev.v - 1.5) / 8, 0.08, 1); this.play(this.pick(`bounce_${surf}`), when, { gain: 0.75 * g, pan: ev.pan, rate: 0.95 + R() * 0.1, send: S.send }); return; }
+        case 'trap': { if (fast || !gap('trap', 0.1)) return; const g = clamp((ev.v || 3) / 10, 0.12, 0.6); this.play(this.pick('trap'), when, { gain: g, pan: ev.pan, rate: 0.9 + R() * 0.2, send: S.send * 0.7 }); return; }
+        case 'catch': this.play(this.pick('catch'), when, { gain: 0.8, pan: ev.pan, send: 0.15 }); return;
+        case 'parry': this.play(this.pick('parry'), when, { gain: 0.9, pan: ev.pan, send: 0.2 }); return;
+        case 'block': this.play(this.pick('parry'), when, { gain: 0.6, pan: ev.pan, rate: 0.85, send: 0.15 }); return;
+        case 'post': this.play(this.pick('clang'), when, { gain: 0.8, pan: ev.pan, send: 0.4 }); this.crowdReact('gasp', when + 0.12, 1.25, null); return;
+        case 'net': if (!gap('net', 1.2)) return; this.play(this.pick('net'), when, { gain: clamp(ev.v / 12, 0.3, 0.8), pan: ev.pan, send: 0.2 }); return;
+        case 'fence': if (fast || !gap('fence', 0.3)) return; this.play(this.pick('fence'), when, { gain: clamp(ev.v / 12, 0.15, 0.7), pan: ev.pan, send: 0.2 }); return;
+        case 'tackle': if (fast) return; this.play(this.pick('scuff'), when, { gain: 0.35, pan: ev.pan }); if (S.squeak && R() < 0.6 * S.squeak) this.play(this.pick('squeak'), when + R() * 0.08, { gain: 0.2, pan: ev.pan }); return;
+        case 'save': if (!gap('save', 0.8)) return; this.crowdReact('gasp', when + 0.1, ev.kind === 'parry' ? 1.1 : ev.kind === 'block' ? 0.55 : 0.8, null); if (ev.kind !== 'block') this.applause(when + 0.9, 0.35, W, false); return;
+        case 'miss': if (ev.near) { this.crowdReact('gasp', when + 0.08, 1.0, null); this.crowdReact('groan', when + 0.55, 0.5, W); } else this.crowdReact('groan', when + 0.1, 0.55, W); return;
+        case 'goal': {
+          if (!gap('goal', 3)) return;
+          const home = !!ev.home, s = home ? 1.3 : 0.6;
+          this.crowdReact('cheer', when + 0.12, s, W);
+          if (ev.wo) this.crowdReact('groan', when + 0.2, home ? 0.3 : 0.7, ev.wo, { keep: true });
+          this.applause(when + 0.5, (home ? 0.75 : 0.4), W, true);
+          return;
+        }
+        case 'surge': this.crowdReact('surge', when, ev.home === false ? 0.25 : 0.45, W); return;
+        case 'foul':
+          this.play(this.pick('scuff'), when, { gain: 0.5, pan: ev.pan }); if (S.squeak) this.play(this.pick('squeak'), when + 0.02, { gain: 0.25 * S.squeak, pan: ev.pan });
+          this.crowdReact('protest', when + 0.22, 0.75, W); return;
+        case 'whistle': {
+          const map = { foul: 'wShort_', restart: 'wShort_', kickoff: 'wLong_', half: 'wHalf', full: 'wFull' };
+          this.whistle(map[ev.kind] || 'wShort_', when, ev.kind === 'restart' ? 0.8 : 1); return;
+        }
+        case 'applause': this.applause(when, ev.level || 0.5, W, ev.big); if (ev.cheer) this.crowdReact('cheer', when + 0.05, ev.cheer, W, { fadeAfter: 1.6 }); return;
+        case 'shout': { if (fast) return; const b = this.pick('shout'); this.play(b, when, { dest: this.stands[(R() * this.stands.length) | 0].rx, gain: (ev.level || 0.2) * (0.65 + R() * 0.3), rate: 0.88 + R() * 0.24, pan: (R() - 0.5) * 0.9, lp: 2200 + R() * 3500, send: 0.1 + R() * 0.25 }); return; }
+      }
+    }
+  }
+  // offline helper: render the event log + snapshots into an AudioBuffer
+  async function renderLog(o) {
+    const sr = o.sr || 44100, t0 = o.t0, t1 = o.t1, pre = o.pre != null ? o.pre : 6, ta = Math.max(0, t0 - pre);
+    const ctx = new OfflineAudioContext(2, Math.ceil((t1 - ta) * sr), sr);
+    const eng = new Engine(ctx, { seed: o.seed || 7, crowd: o.crowd, whistle: o.whistle, src: o.src, stands: o.stands, surface: o.surface, volume: o.volume });
+    if (o.recSrc) { try { await eng.loadRecs(o.recSrc, o.recMap); } catch (e) { eng.allSynth(); } }
+    await eng.init();
+    const first = o.snaps.find(s => s.t >= ta) || o.snaps[0] || {};
+    if (first.surf) eng.surface = first.surf;
+    eng.start(0);
+    for (const s of o.snaps) if (s.t >= ta - 0.05 && s.t <= t1) eng.update(s, Math.max(0, s.t - ta), 1);
+    for (const e of o.events) if (e.t >= ta && e.t <= t1) eng.event(e, Math.max(0, e.t - ta + (e.delay || 0)), 1);
+    const buf = await ctx.startRendering();
+    return { buf, skip: t0 - ta };
+  }
+  function wavBytes(buf, from = 0, to) {
+    const sr = buf.sampleRate, i0 = Math.floor(from * sr), i1 = to != null ? Math.min(buf.length, Math.floor(to * sr)) : buf.length, n = i1 - i0, ch = buf.numberOfChannels;
+    const out = new DataView(new ArrayBuffer(44 + n * ch * 2)); let p = 0;
+    const W = s => { for (let i = 0; i < s.length; i++) out.setUint8(p++, s.charCodeAt(i)); }, U32 = v => { out.setUint32(p, v, true); p += 4; }, U16 = v => { out.setUint16(p, v, true); p += 2; };
+    W('RIFF'); U32(36 + n * ch * 2); W('WAVE'); W('fmt '); U32(16); U16(1); U16(ch); U32(sr); U32(sr * ch * 2); U16(ch * 2); U16(16); W('data'); U32(n * ch * 2);
+    const data = []; for (let c = 0; c < ch; c++) data.push(buf.getChannelData(c));
+    for (let i = i0; i < i1; i++) for (let c = 0; c < ch; c++) { out.setInt16(p, clamp(data[c][i], -1, 1) * 32767, true); p += 2; }
+    return new Uint8Array(out.buffer);
+  }
+  return { Engine, renderLog, wavBytes, mulberry, renderAll, synthAll, synth: { crowdVoices, planBabble, planReaction, planShout, synthApplause, synthWhistle, synthImpact, synthKick, synthRoll, synthClang, synthNet, synthFence, synthSqueak, synthNoiseCrowd, addFanWhistles, normRMS, normPeak, makeLoop, SURF_SND, CSR } };
+}
+const SND = SND_FACTORY();
+
+/* ---------- game <-> sound glue: event queue, per-frame snapshot, UI ---------- */
+const SPRITE_MAP = {"cheer0": [0.4, 11.5], "cheer1": [12.3, 8.5], "groan0": [21.2, 2.5], "groan1": [24.1, 2.8], "groan2": [27.3, 3.2], "whistle0": [30.9, 0.5109], "whistle1": [31.8109, 1.1]};
+// final per-layer sound sources (user blind test, 2026-11-03): recorded referee whistle, groan and goal cheer; synthesized crowd bed, tension, gasp, applause, ball
+const SND_SRC = { bed: 'synth', whistle: 'rec', gasp: 'synth', groan: 'rec', cheer: 'rec', applause: 'synth' };
+// ?crowd=rec|hybrid|synth and ?whistle=rec|synth (test overrides) still select the old all-or-nothing modes
+function sndSrc(crowd, whistle) { return crowd ? SND.Engine.srcFromModes(crowd, whistle || 'synth') : Object.assign({}, SND_SRC, whistle ? { whistle } : {}); }
+const sndR = mulberry(4242);                 // sound-only randomness (never touches the match RNG)
+const _sv = new V3();
+let STANDS = null;
+function getStands() {
+  if (STANDS) return STANDS;
+  const by = {};
+  for (const sp of SPECT) { const k = sp.seat.side; const b = by[k] || (by[k] = { side: k, x: 0, z: 0, n: 0, home: 0, kid: 0 }); b.x += sp.seat.p.x; b.z += sp.seat.p.z; b.n++; b.home += sp.support === 0 ? 1 : 0; b.kid += sp.kid ? 1 : 0; }
+  const list = Object.values(by).filter(b => b.n > 0);
+  const maxN = Math.max(...list.map(b => b.n));
+  STANDS = list.map(b => ({ side: b.side, cx: b.x / b.n, cz: b.z / b.n, home: b.home / b.n, w: +(0.55 + 0.45 * b.n / maxN).toFixed(2) }));
+  return STANDS;
+}
+function sndPan(x, z, y = 0.4) { _sv.set(x, y, z).project(camera); return Math.max(-0.9, Math.min(0.9, +(_sv.x * 0.8).toFixed(3))); }
+// how loud each stand reacts for team T: its share of that team's supporters
+function standW(T, lo = 0.35, k = 1.3) { return getStands().map(s => +(lo + k * (T === MATCH.home ? s.home : 1 - s.home)).toFixed(2)); }
+function sndTension() {
+  if (MATCH.state !== 'play') return 0;
+  if (MATCH.phase === 'restart' && (MATCH.rkind === 'penalty' || MATCH.rkind === 'tenm')) return 0.95;
+  if (MATCH.phase === 'dead') return 0.35;   // a stoppage keeps the crowd buzzing (protests, chatter); avoid a sudden hole
+  const o = ball.owner, bx = o ? o.pos.x : ball.p.x, bz = o ? o.pos.z : ball.p.z, T = MATCH.possTeam;
+  const gx = T ? 20 * T.dir : Math.sign(bx || 1) * 20;
+  const d = Math.hypot(gx - bx, bz * 0.6);
+  let t = Math.pow(Math.max(0, Math.min(1, 1 - (d - 4) / 15)), 1.5);
+  if (MATCH.phase === 'restart' && MATCH.rkind === 'free' && d < 16) t = Math.max(t, 0.7);
+  if (MATCH.shot) t = 1;
+  return +t.toFixed(3);
+}
+const AMB = { boot: 0.6, walkout: 0.8, warmup: 0.9, lineup: 1, kickoff: 1, play: 1, goal: 1, halftime: 1.15, fulltime: 1.1, handshake: 0.9, walkin: 0.55, post: 0.22 };
+function sndEv(type, d) { AUD.ev(type, d); }
+const AUD = {
+  ctx: null, eng: null, on: false, loading: false, vol: 0.7, q: [], log: [], snaps: [], lastSnap: -1, nextShout: 20, k: 0, cur: null,
+  mode: Q.get('crowd') || null, whistle: Q.get('whistle') || null, LAT: 0.02,
+  get rate() { return STATE.speed * DEBUG_SPEED; },
+  ev(type, d) {
+    const e = Object.assign({ type, t: +MATCH.t.toFixed(4) }, d || {});
+    if (e.x != null) { e.pan = sndPan(e.x, e.z); e.x = +e.x.toFixed(2); e.z = +e.z.toFixed(2); }
+    if (e.spd != null) e.spd = +e.spd.toFixed(2); if (e.v != null) e.v = +e.v.toFixed(2);
+    e.surf = STATE.surface;
+    if (this.log.length < 80000) this.log.push(e);
+    if (this.on) this.q.push(e);
+  },
+  snap() {
+    const st = getStands();
+    const s = { t: +MATCH.t.toFixed(3), state: MATCH.state, tension: sndTension(), roll: (!ball.owner && !ball.air) ? +Math.hypot(ball.v.x, ball.v.z).toFixed(2) : 0,
+      surf: STATE.surface, amb: AMB[MATCH.state] ?? 1, bpan: sndPan(ball.p.x, ball.p.z, 0.1), pans: st.map(b => sndPan(b.cx, b.cz, 1.5)), sw: st.map(b => +((SIDES[b.side].near ? 0.3 : 1) * b.w).toFixed(2)) };
+    if (s.t - this.lastSnap >= 0.05 && this.snaps.length < 60000) { this.snaps.push(s); this.lastSnap = s.t; }
+    // occasional individual "加油!" from the stands (logged like any other event so offline renders match)
+    if (MATCH.t > this.nextShout) { this.nextShout = MATCH.t + 14 + sndR() * 22; if (/play|warmup|lineup|halftime|kickoff/.test(MATCH.state)) this.ev('shout', { level: +(0.14 + sndR() * 0.12).toFixed(2) }); }
+    return s;
+  },
+  frame() { // called once per rendered frame, after the sim steps: everything of this frame goes out on one audio timestamp
+    const s = this.snap();
+    if (!this.on || !this.eng || !this.eng.started) { this.q.length = 0; return; }
+    const now = this.ctx.currentTime + this.LAT, r = this.rate;
+    for (const e of this.q) this.eng.event(e, now + (e.delay || 0) / r, r);
+    this.q.length = 0;
+    this.eng.update(s, now, r);
+  },
+  ui(text) {
+    const on = this.on && !this.loading;
+    const b = $('soundBtn'), qb = $('sndQuick');
+    b.textContent = this.loading ? '准备中…' : on ? '关闭声音' : '开启声音'; b.setAttribute('aria-pressed', String(on));
+    qb.innerHTML = on ? '<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 7h3l4-3v12l-4-3H3z" fill="currentColor"/><path d="M13 6.5a5 5 0 0 1 0 7M15.5 4a8.5 8.5 0 0 1 0 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>' : '<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 7h3l4-3v12l-4-3H3z" fill="currentColor"/><path d="M13 7l5 6M18 7l-5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'; qb.setAttribute('aria-label', on ? '关闭声音' : '开启声音'); qb.setAttribute('aria-pressed', String(on)); qb.title = on ? '关闭声音' : '开启声音';
+    if (text) $('soundHint').textContent = text;
+  },
+  async enable() {
+    if (this.loading) return;
+    if (!this.ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext; if (!AC) { this.ui('这个浏览器不支持网页音频。'); return; }
+      this.ctx = new AC({ latencyHint: 'interactive' });
+      // unlock on iOS inside the click: one silent sample
+      const b = this.ctx.createBuffer(1, 1, 22050), s = this.ctx.createBufferSource(); s.buffer = b; s.connect(this.ctx.destination); s.start(0);
+    }
+    const resumed = this.ctx.resume();
+    this.on = true;
+    if (!this.eng) {
+      this.loading = true; this.ui('正在合成声音……');
+      await resumed.catch(() => { });
+      const eng = new SND.Engine(this.ctx, { src: sndSrc(this.mode, this.whistle), surface: STATE.surface, volume: 0, stands: getStands().map(b => ({ pan: sndPan(b.cx, b.cz, 1.5), home: b.home, w: b.w })) });
+      if (eng.needsRecs()) { try { await eng.loadRecs('crowd-cc0.mp3', SPRITE_MAP); } catch (e) { eng.allSynth(); } }   // recordings missing -> every layer falls back to synthesis
+      await eng.init(p => { if (p > 0.05) this.ui(`正在合成声音…… ${Math.round(p * 100)}%`); });
+      eng.start(this.ctx.currentTime + 0.05);
+      this.eng = eng; this.loading = false;
+    }
+    await resumed.catch(() => { });
+    if (!this.on) return;
+    if (STATE.paused) this.ctx.suspend();
+    this.eng.setVolume(this.vol * this.vol);
+    this.ui('声音已开启。暂停比赛时声音也会暂停。');
+  },
+  disable() {
+    this.on = false; this.ui('声音已关闭。');
+    if (this.eng) this.eng.setVolume(0);
+    setTimeout(() => { if (!this.on && this.ctx) this.ctx.suspend(); }, 200);
+  },
+  toggle() { if (this.on && !this.loading) this.disable(); else this.enable(); },
+  setPaused(p) {
+    if (!this.ctx || !this.on || !this.eng) return;
+    if (p) { this.eng.setVolume(0); setTimeout(() => { if (STATE.paused) this.ctx.suspend(); }, 120); }
+    else { this.ctx.resume().then(() => this.eng.setVolume(this.vol * this.vol)); }
+  },
+  setVol(v) { this.vol = v; try { localStorage.setItem('s12vol', String(v)); } catch (e) { } if (this.on && this.eng) this.eng.setVolume(v * v); },
+  async render(t0, t1, o = {}) { // offline: same engine + the logged events -> WAV (base64)
+    const { buf, skip } = await SND.renderLog({ t0, t1, sr: o.sr || 44100, events: this.log, snaps: this.snaps, src: sndSrc(o.crowd || this.mode, o.whistle || this.whistle),
+      recSrc: Object.values(sndSrc(o.crowd || this.mode, o.whistle || this.whistle)).includes('rec') ? 'crowd-cc0.mp3' : null, recMap: SPRITE_MAP, seed: o.seed || 7, volume: o.volume ?? 0.49,
+      stands: getStands().map(b => ({ pan: 0, home: b.home, w: b.w })) });
+    const bytes = SND.wavBytes(buf, skip);
+    let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(bin);
+  },
+};
+try { const v = parseFloat(localStorage.getItem('s12vol')); if (v >= 0 && v <= 1) AUD.vol = v; } catch (e) { }
+onBallBounce = v => sndEv('bounce', { v, x: ball.p.x, z: ball.p.z });
+document.addEventListener('visibilitychange', () => { if (!AUD.ctx || !AUD.on) return; if (document.hidden) AUD.ctx.suspend(); else if (!STATE.paused) AUD.ctx.resume(); });
 
 /* =====================================================================
    UI  (controls, HUD, camera modes, tap-to-mark, main loop, test hooks)
@@ -2090,7 +2928,11 @@ homeSel.addEventListener('change', () => { if (homeSel.value === awaySel.value) 
 awaySel.addEventListener('change', () => { if (homeSel.value === awaySel.value) homeSel.value = (+awaySel.value + 1) % CLUBS.length; newMatch(homeSel.value, awaySel.value); });
 $('randomBtn').addEventListener('click', () => { const a = Math.floor(rnd() * 4); let b = Math.floor(rnd() * 3); if (b >= a) b++; newMatch(a, b); });
 $('restartBtn').addEventListener('click', () => newMatch(homeSel.value, awaySel.value));
-$('pauseBtn').addEventListener('click', e => { STATE.paused = !STATE.paused; e.currentTarget.textContent = STATE.paused ? '继续' : '暂停'; e.currentTarget.setAttribute('aria-pressed', String(STATE.paused)); });
+$('soundBtn').addEventListener('click', () => AUD.toggle());
+$('sndQuick').addEventListener('click', () => AUD.toggle());
+$('volSlider').value = Math.round(AUD.vol * 100);
+$('volSlider').addEventListener('input', e => { AUD.setVol(e.target.value / 100); if (!AUD.on && +e.target.value > 0) AUD.enable(); });
+$('pauseBtn').addEventListener('click', e => { STATE.paused = !STATE.paused; AUD.setPaused(STATE.paused); e.currentTarget.textContent = STATE.paused ? '继续' : '暂停'; e.currentTarget.setAttribute('aria-pressed', String(STATE.paused)); });
 $('feedBtn').addEventListener('click', e => { STATE.feed = !STATE.feed; $('feedWrap').classList.toggle('off', !STATE.feed); e.currentTarget.textContent = STATE.feed ? '解说：开' : '解说：关'; e.currentTarget.setAttribute('aria-pressed', String(STATE.feed)); });
 function nudge(type, label) {
   MATCH.nudge = { type }; marker.visible = false;
@@ -2206,15 +3048,17 @@ function visuals(dt) {
 let last = performance.now(), simAcc = 0, fps = 0, fpsN = 0, fpsT = 0;
 function frame(now) {
   requestAnimationFrame(frame);
+  if (CAPTURE && frame.done) return;
   const dt = Math.min(0.1, Math.max(0, (now - last) / 1000)); last = now;
   fpsN++; fpsT += dt; if (fpsT >= 1) { fps = Math.round(fpsN / fpsT); fpsN = 0; fpsT = 0; }
   if (!STATE.paused) {
     simAcc += dt * STATE.speed * DEBUG_SPEED;
     const maxSteps = DEBUG_SPEED > 1 ? 600 : 14;
-    let n = 0; while (simAcc >= CFG.FIXED && n < maxSteps) { simStep(CFG.FIXED); simAcc -= CFG.FIXED; n++; }
+    let n = 0; while (simAcc >= CFG.FIXED && n < maxSteps) { simStep(CFG.FIXED); simAcc -= CFG.FIXED; n++; if (++AUD.k % 3 === 0) AUD.snap(); }
     if (n >= maxSteps) simAcc = 0;
   }
   updateCamera(dt);
+  AUD.frame();
   visuals(dt);
   renderFrame();
   if (!frame.done && ++frame.n > 2) { frame.done = true; $('loading').classList.add('done'); }
@@ -2269,6 +3113,9 @@ window.__game = {
     for (let i = anims.length; i < pool.length; i++) pool[i].visible = false;
     ball.p.set(0, -5, 0);
   },
+  sound: { get log() { return AUD.log; }, get snaps() { return AUD.snaps; }, get on() { return AUD.on; }, get ready() { return !!(AUD.eng && AUD.eng.ready); }, get mode() { return AUD.mode; }, render: (t0, t1, o) => AUD.render(t0, t1, o), stands: () => getStands() },
+  // capture mode (?capture=1): advance the sim by hand, rendering one frame at the end (deterministic A/V for clips)
+  advance(sec, render = true) { const n = Math.round(sec / CFG.FIXED); for (let i = 0; i < n; i++) { simStep(CFG.FIXED); if (i % 3 === 2 || i === n - 1) { updateCamera(CFG.FIXED * 3); AUD.snap(); } } if (render) { if (MATCH.t > bannerSimUntil) bannerEl.classList.remove('on'); visuals(sec); renderFrame(); } return MATCH.t; },
   testSolvers, placeMarkerAt, setDebugSpeed(n) { DEBUG_SPEED = Math.max(1, Math.min(200, n)); }, debugView(x, y, z, zm) { CAM.dbg = [x, y, z, zm]; STATE.cam = 'debug'; }, courtToScreen(x, z) { const v = new V3(x, 0, z).project(camera); const r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; },
 };
 
