@@ -28,7 +28,35 @@
 | 观众互动 | “射门！”“横传”“长传”会影响持球球员的下一个动作 |
 | 点击球场 | 放置一个标记，下一脚传球会传到那里 |
 | 播放 | 暂停/继续、1× 或 2× 速度、解说开关、重新开始 |
+| 声音 | 开启/关闭声音（默认静音）和音量滑块；画面右上角的喇叭按钮也可以开关 |
 
 测试用的网址参数：`?speed=20`（模拟加速）、`len=4|8|12|20`、`surface=asphalt`、`tod=night`、`cam=tv`、`home=0&away=3`。
+
+## 声音
+
+默认静音。点击“开启声音”（或画面右上角的喇叭）后才会启动音频（浏览器要求用户先点一下），旁边的滑块调音量。暂停比赛时声音一起暂停，切到别的标签页时也会暂停。
+
+- **声音导演：** 比赛引擎在发生事件的那一刻把事件交给声音导演：开球、传球和射门（按力度区分）、停球、弹地、地面滚动、抢断、犯规、扑救（接住 / 托出 / 封堵）、击中门柱或横梁、射偏、进球、球撞网和围网、滑跪庆祝、中场两声哨、终场三声哨。同一帧里产生的所有事件都在 Web Audio 时钟的同一个时间点排程，所以声音和画面落在同一帧；倍速（1×/2×）和暂停都会被尊重。
+- **球声按场地区分：** 橡胶（闷）、沥青（脆亮）、人造草（软、带草声）、木地板（空心的木头声，混响更多），弹地和滚动声也随场地变化。
+- **分层人群：** 常驻低语 + 紧张层（球离球门越近越紧张，平滑升降）+ 惊叹 / 叹息（射偏、扑救、中柱）+ 进球欢呼（主队进球更响，客队进球时主队看台会叹气）+ 掌声和口哨。每块看台是一路独立的声音，按看台在画面里的位置做立体声，随镜头旋转而移动；被切掉的近侧看台会变小声。新反应会交叉淡入并压下旧反应，裁判吹哨时人声自动降低一点。每次播放都会随机挑版本、微调音高和起始点，避免听出重复。
+- **合成与录音：** 哨声、所有球声、看台个人喊“加油”、紧张层都是在浏览器里用 Web Audio 程序合成的（合成在 Web Worker 里完成，不卡画面）。人群底噪、欢呼、惊叹、叹息和掌声改用少量 CC0 录音（`crowd-cc0.mp3`，约 1.2 MB），因为纯合成的人群听起来太像风声；如果录音文件加载失败，会自动退回纯合成。
+- **试听页：** [`sound-test.html`](sound-test.html) 可以逐类盲听每种声音的 2–3 个版本（A/B/C）。
+
+测试用的网址参数：`crowd=rec|hybrid|synth`（人群用录音 / 底噪合成+反应录音 / 全部合成）、`whistle=synth|rec`、`seed=N`（固定随机种子）。
+
+### CC0 录音出处
+
+以下录音都以 CC0 1.0（公共领域）发布在 [Freesound](https://freesound.org/)，已剪辑、调整响度后合并为 `crowd-cc0.mp3`：
+
+| 用途 | 录音 | 作者 |
+|---|---|---|
+| 进球欢呼 | [small crowd cheering](https://freesound.org/s/264377/) | HowardV |
+| 进球欢呼 | [small crowd gasp shock surprise](https://freesound.org/s/264376/) | HowardV |
+| 惊叹 | [gasps small crowd.wav](https://freesound.org/s/439258/) | dreamstobecome |
+| 叹息 | [Small crowd reactions](https://freesound.org/s/488472/) | IENBA |
+| 掌声 | [small group applauding (48/24)](https://freesound.org/s/484513/) | neilraouf |
+| 掌声 | [Small applause](https://freesound.org/s/462362/) | Breviceps |
+| 看台底噪 | [Local Football Crowd Cheering](https://freesound.org/s/752672/) | Eightmate |
+| 哨声（试听页和 `whistle=rec`） | [Referee whistle sound.wav](https://freesound.org/s/538422/)、[Referee whistle blow, gymnasium.wav](https://freesound.org/s/218318/) | Rosa-Orenes256、SpliceSound |
 
 所有人物、球队与美术均为原创。
