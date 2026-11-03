@@ -2,139 +2,264 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
+<meta name="theme-color" content="#1a1423">
 <title>第12学校五人制足球 · 像素立体模型</title>
 <meta name="description" content="漂浮小岛上的校园五人制足球像素立体模型，内置实时比赛引擎。">
 <style>
-:root{--ink:#1a1423;--paper:#f6f2ea;--card:#fffdf8;--muted:#6b6577;--line:#ddd5c6;--accent:#c0213a}
+:root{--ink:#1a1423;--paper:#f6f2ea;--accent:#c0213a;--gold:#ffd166;--chalk:#f3efe2;--chalk2:#c9d6c8;--board:#24392e;--wood:#8a5a2b;--woodL:#b07a42;--woodD:#4e3118;
+  --mono:ui-monospace,SFMono-Regular,Menlo,monospace,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC","Noto Sans SC",sans-serif;
+  --cjk:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC","Noto Sans SC",sans-serif;
+  --sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px);--sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px)}
 *{box-sizing:border-box}
-html,body{margin:0}
-body{background:var(--paper);color:var(--ink);font:15px/1.5 "PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC","Noto Sans SC",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
-:root{--mono:ui-monospace,SFMono-Regular,Menlo,monospace,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC","Noto Sans SC",sans-serif;--cjk:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC","Noto Sans SC",sans-serif}
-.wrap{max-width:1200px;margin:0 auto;padding:22px 22px 28px}
-.kicker{font:700 12px/1 var(--cjk);letter-spacing:.2em;color:var(--accent)}
-h1{font:800 clamp(26px,4.2vw,42px)/1.15 var(--cjk);margin:8px 0 6px;letter-spacing:.02em}
-.dek{color:var(--muted);margin:0 0 18px;max-width:62ch}
-.layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start}
-.stage{position:relative;background:#6fb3e0;border:1px solid var(--line);aspect-ratio:16/10;overflow:hidden;border-radius:6px;user-select:none;-webkit-user-select:none}
-#view{position:absolute;inset:0;width:100%;height:100%;display:block;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:none;cursor:crosshair}
-.hud{position:absolute;left:8px;top:8px;display:flex;flex-direction:column;gap:4px;pointer-events:none;font:700 12px/1 var(--mono);color:#fffdf8}
-.hud .row{background:rgba(26,20,35,.82);padding:6px 8px;border-radius:4px;display:flex;align-items:center;gap:6px;width:max-content}
-.chip{width:9px;height:9px;border-radius:2px;display:inline-block;box-shadow:inset 0 -3px 0 var(--c2,#000)}
-.hud .sc{font-size:14px;min-width:12px;text-align:center}
-.hud .ph{color:#ffe8a0;font-weight:600}
-.hudr{position:absolute;right:8px;top:8px;display:flex;gap:4px}
-.hudr button{width:40px;height:40px;border:0;border-radius:4px;background:rgba(26,20,35,.82);color:#fffdf8;font:700 18px/1 ui-monospace,monospace;cursor:pointer}
-.hudr button:active{background:#c0213a}
-.banner{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);background:rgba(26,20,35,.86);color:#fffdf8;font:700 13px/1.3 var(--cjk);padding:8px 12px;border-radius:4px;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;max-width:94%;overflow:hidden;text-overflow:ellipsis}
+html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none}
+body{background:#1a1423;color:var(--ink);font:15px/1.5 var(--cjk);-webkit-text-size-adjust:100%}
+button{-webkit-tap-highlight-color:transparent}
+/* ---------- full-viewport stage ---------- */
+.stage{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;overflow:hidden;background:#6fb3e0;user-select:none;-webkit-user-select:none}
+#view{position:absolute;left:0;top:0;display:block;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:none;cursor:crosshair}
+/* pixel-UI primitives: hard 2px "pixel" frames, no rounded corners */
+.px{box-shadow:0 0 0 2px var(--ink)}
+/* ---------- title tag (top-left) ---------- */
+.title{position:absolute;left:calc(12px + var(--sal));top:calc(12px + var(--sat));display:flex;flex-direction:column;gap:3px;pointer-events:none;color:#fffdf8;font:800 15px/1.1 var(--cjk);letter-spacing:.04em;text-shadow:2px 2px 0 rgba(26,20,35,.75)}
+.title .kicker{font:700 10px/1 var(--cjk);letter-spacing:.24em;color:var(--gold)}
+/* ---------- TV score strip (top centre) ---------- */
+.hud{position:absolute;left:50%;top:calc(10px + var(--sat));transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:0;pointer-events:none;font:700 14px/1 var(--mono);color:#fffdf8;z-index:3}
+.tvbar{display:flex;align-items:stretch;height:32px;background:#1a1423;box-shadow:0 0 0 2px #fffdf8,4px 4px 0 2px rgba(26,20,35,.45)}
+.tvbar .tm{display:flex;align-items:center;gap:7px;padding:0 10px;font:700 14px/1 var(--cjk);white-space:nowrap}
+.tvbar .tma{flex-direction:row}
+.chip{width:10px;height:14px;display:inline-block;box-shadow:inset 0 -5px 0 var(--c2,#000),0 0 0 1px rgba(255,253,248,.5)}
+.tvbar .score{display:flex;align-items:center;gap:4px;padding:0 10px;background:#fffdf8;color:#1a1423;font:800 18px/1 var(--mono)}
+.tvbar .score i{font-style:normal;color:#6b6577;font-weight:700}
+.tvbar .sc{min-width:12px;text-align:center}
+.tvbar .clk{display:flex;align-items:center;padding:0 10px;background:var(--accent);color:#fffdf8;font:700 14px/1 var(--mono);letter-spacing:.04em}
+.hud .ph{margin-top:4px;padding:3px 8px;background:rgba(26,20,35,.82);color:var(--gold);font:700 11px/1 var(--cjk);letter-spacing:.12em;box-shadow:0 0 0 1px rgba(255,253,248,.35)}
+.hud .ph:empty{display:none}
+/* ---------- camera / sound icons (top-right) ---------- */
+.hudr{position:absolute;right:calc(12px + var(--sar));top:calc(12px + var(--sat));display:flex;gap:6px;z-index:3}
+.hudr button{width:40px;height:40px;border:0;border-radius:0;background:rgba(26,20,35,.82);color:#fffdf8;font:700 18px/1 ui-monospace,monospace;cursor:pointer;box-shadow:0 0 0 2px rgba(255,253,248,.25);display:flex;align-items:center;justify-content:center;padding:0}
+.hudr button:hover{background:rgba(26,20,35,.95);box-shadow:0 0 0 2px #fffdf8}
+.hudr button:active,.hudr button[aria-pressed=true]{background:var(--accent)}
+/* ---------- banners ("已标记！" etc.) under the score strip ---------- */
+.banner{position:absolute;left:50%;top:calc(76px + var(--sat));transform:translateX(-50%);background:rgba(26,20,35,.9);color:#fffdf8;font:700 13px/1.3 var(--cjk);padding:8px 12px;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;max-width:calc(100% - 24px);overflow:hidden;text-overflow:ellipsis;box-shadow:0 0 0 2px var(--gold);z-index:3}
 .banner.on{opacity:1}
-.panel{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:14px}
-.panel h2,.feed h2{font:700 12px/1 var(--cjk);letter-spacing:.14em;color:var(--muted);margin:0 0 12px}
-.ctl{margin:0 0 14px}
-.ctl:last-child{margin-bottom:0}
-.lab{display:block;font:600 12px/1.2 var(--cjk);color:var(--ink);margin:0 0 6px}
-.seg{display:flex;border:1px solid var(--ink);border-radius:6px;overflow:hidden;background:#fff}
-.seg button{flex:1 1 0;min-width:0;min-height:40px;border:0;border-right:1px solid var(--ink);background:none;font:inherit;font-size:13px;cursor:pointer;padding:0 4px;color:var(--ink)}
+/* ---------- bottom dock: badge + ticker ---------- */
+.dock{position:absolute;left:calc(12px + var(--sal));right:calc(12px + var(--sar));bottom:calc(12px + var(--sab));display:flex;align-items:flex-end;gap:12px;pointer-events:none;z-index:4}
+.dock>*{pointer-events:auto}
+/* tactics-board badge: a tiny chalkboard in a wooden frame */
+.badge{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 9px 5px;min-width:72px;border:0;border-radius:0;cursor:pointer;color:var(--chalk);
+  background:var(--board) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6'%3E%3Crect x='1' y='2' width='1' height='1' fill='%23ffffff' fill-opacity='.06'/%3E%3Crect x='4' y='4' width='1' height='1' fill='%23ffffff' fill-opacity='.05'/%3E%3C/svg%3E");
+  box-shadow:0 0 0 3px var(--wood),0 0 0 5px var(--woodD),5px 5px 0 5px rgba(26,20,35,.35);transition:transform .12s}
+.badge:hover{transform:translateY(-2px)}
+.badge:focus-visible,.ticker:focus-visible,.sheet .x:focus-visible{outline:2px solid var(--gold);outline-offset:4px}
+.badge .chalkcourt{display:block;color:var(--chalk);opacity:.9}
+.badge .blab{font:700 12px/1 var(--cjk);letter-spacing:.18em;padding-left:.18em}
+.badge kbd{position:absolute;margin:-12px 0 0 62px;font:700 9px/1 var(--mono);color:var(--ink);background:var(--gold);padding:2px 4px}
+.badge{position:relative}
+.badge[aria-expanded=true]{background-color:#2e4a3b;box-shadow:0 0 0 3px var(--gold),0 0 0 5px var(--woodD)}
+/* commentary ticker: TV lower third, pixel frame */
+.ticker{flex:1 1 auto;min-width:0;max-width:820px;margin:0 auto;display:flex;align-items:stretch;border:0;border-radius:0;padding:0;cursor:pointer;text-align:left;background:rgba(26,20,35,.84);color:#fffdf8;box-shadow:0 0 0 2px rgba(255,253,248,.85),4px 4px 0 2px rgba(26,20,35,.35);font:inherit}
+.ticker:hover{background:rgba(26,20,35,.93)}
+.tk-tag{flex:0 0 auto;display:flex;align-items:center;padding:0 10px;background:var(--accent);color:#fffdf8;font:800 13px/1 var(--cjk);letter-spacing:.14em}
+.tk-lines{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;justify-content:center;padding:6px 10px;gap:2px;min-height:46px}
+.tk-line{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:600 14px/1.35 var(--cjk)}
+.tk-line b{font:700 12px/1 var(--mono);color:var(--gold);margin-right:8px}
+.tk-line.prev{opacity:.55;font-size:12px}
+.tk-line.prev b{color:#fffdf8}
+.tk-line.goal{color:var(--gold)}
+.tk-line.in{animation:tkIn .45s steps(5,end)}
+@keyframes tkIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.tk-idle{opacity:.6}
+.tk-more{flex:0 0 auto;display:flex;align-items:center;gap:4px;padding:0 10px;font:700 12px/1 var(--cjk);color:var(--chalk2);border-left:2px solid rgba(255,253,248,.18)}
+.ticker[aria-expanded=true] .caret{display:inline-block;transform:rotate(-90deg)}
+body.feedoff .ticker .tk-lines::before{content:"解说已关闭";font:600 13px/1.35 var(--cjk);opacity:.6}
+body.feedoff .ticker .tk-line{display:none}
+/* ---------- overlay sheets (board + commentary history) ---------- */
+.sheet{position:absolute;z-index:6;display:none;flex-direction:column;color:var(--chalk);background:rgba(36,57,46,.84);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect x='1' y='3' width='1' height='1' fill='%23ffffff' fill-opacity='.05'/%3E%3Crect x='6' y='6' width='1' height='1' fill='%23ffffff' fill-opacity='.04'/%3E%3Crect x='4' y='1' width='1' height='1' fill='%23000000' fill-opacity='.06'/%3E%3C/svg%3E");
+  box-shadow:0 0 0 4px var(--wood),0 0 0 6px var(--woodD),inset 0 0 0 2px var(--woodL),8px 8px 0 6px rgba(26,20,35,.3)}
+.sheet.open{display:flex;animation:shIn .18s steps(4,end)}
+@keyframes shIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.sh-head{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px 8px 16px;border-bottom:2px dashed rgba(243,239,226,.28)}
+.sh-head h2{margin:0;font:800 15px/1.2 var(--cjk);letter-spacing:.16em;color:var(--chalk)}
+.sh-head h2 small{font:600 11px/1 var(--cjk);letter-spacing:.1em;color:var(--chalk2);margin-left:6px}
+.sheet .x{width:40px;height:40px;border:2px solid rgba(243,239,226,.5);border-radius:0;background:transparent;color:var(--chalk);font:700 16px/1 var(--mono);cursor:pointer}
+.sheet .x:hover{background:rgba(243,239,226,.12)}
+/* tactics board: anchored bottom-left above the badge, off the centre of the court */
+.board{left:calc(14px + var(--sal));bottom:calc(94px + var(--sab));width:min(540px,calc(100vw - 28px));max-height:calc(100dvh - 160px)}
+.bgrid{flex:1 1 auto;min-height:0;overflow:auto;display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;padding:12px 16px 4px;scrollbar-width:thin;scrollbar-color:rgba(243,239,226,.4) transparent}
+.ctl{margin:0;min-width:0}
+.ctl.wide{grid-column:1/-1}
+.lab{display:block;font:700 12px/1.2 var(--cjk);letter-spacing:.1em;color:var(--chalk2);margin:0 0 6px}
+.lab em{font-style:normal;font-weight:500;letter-spacing:0;color:rgba(243,239,226,.6);margin-left:6px}
+.seg{display:flex;border:2px solid rgba(243,239,226,.75);overflow:hidden;min-width:0}
+.seg button{flex:1 1 0;min-width:0;min-height:38px;border:0;border-right:2px dashed rgba(243,239,226,.35);background:none;font:inherit;font-size:13px;cursor:pointer;padding:0 3px;color:var(--chalk);white-space:nowrap}
 .seg button:last-child{border-right:0}
-.seg button[aria-pressed=true]{background:var(--ink);color:var(--paper)}
-.row2{display:flex;gap:6px;flex-wrap:wrap}
+.seg button:hover{background:rgba(243,239,226,.1)}
+.seg button[aria-pressed=true]{background:var(--chalk);color:var(--board);font-weight:700}
+.row2{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .row2>*{flex:1 1 0;min-width:0}
-.btn{min-height:40px;padding:0 10px;border:1px solid var(--ink);background:#fff;color:var(--ink);border-radius:6px;font:inherit;font-size:13px;cursor:pointer}
-.btn:active,.btn.flash{background:var(--ink);color:var(--paper)}
-.btn[aria-pressed=true]{background:var(--ink);color:var(--paper)}
-select{min-height:40px;width:100%;border:1px solid var(--ink);border-radius:6px;background:#fff;color:var(--ink);font:inherit;font-size:13px;padding:0 8px}
-.vs{flex:0 0 auto!important;align-self:center;font:13px var(--cjk);color:var(--muted)}
-.hint{font-size:12px;color:var(--muted);margin:6px 0 0}
-.sndrow{align-items:center}
-.sndrow input[type=range]{flex:1 1 0;min-width:0;height:40px;margin:0;accent-color:var(--ink)}
-#soundBtn{flex:0 0 auto;min-width:118px}
-.hudr #sndQuick{display:flex;align-items:center;justify-content:center}
-.feed{margin-top:16px}
-#feed{list-style:none;margin:0;padding:0;max-height:300px;overflow:auto;border-top:1px solid var(--line)}
-#feed li{display:grid;grid-template-columns:42px 1fr;gap:8px;padding:8px 2px;border-bottom:1px solid var(--line);font-size:14px}
-#feed li b{font:700 12px/1.7 var(--mono);color:var(--accent)}
-#feed li.goal{background:#fff6d8}
+.btn{min-height:38px;padding:0 8px;border:2px solid rgba(243,239,226,.75);border-radius:0;background:transparent;color:var(--chalk);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+.btn:hover{background:rgba(243,239,226,.1)}
+.btn:active,.btn.flash,.btn[aria-pressed=true]{background:var(--chalk);color:var(--board);font-weight:700}
+#actShoot{border-color:var(--gold);color:var(--gold)}
+#actShoot:active{background:var(--gold);color:var(--ink)}
+select{min-height:38px;width:100%;border:2px solid rgba(243,239,226,.75);border-radius:0;background:rgba(26,20,35,.25);color:var(--chalk);font:inherit;font-size:13px;padding:0 6px}
+select option{color:#1a1423;background:#fffdf8}
+#randomBtn{flex:0 0 auto}
+.vs{flex:0 0 auto!important;font:13px var(--cjk);color:var(--chalk2)}
+.sndrow input[type=range]{flex:1 1 0;min-width:0;height:38px;margin:0;accent-color:var(--gold)}
+#soundBtn{flex:0 0 auto;min-width:104px}
+.ambrow{margin-top:6px}
+.amblab{flex:0 0 auto!important;min-width:104px;font-size:13px;color:var(--chalk)}
+.ambval{flex:0 0 auto!important;min-width:34px;text-align:right;font:700 12px/1 var(--mono);color:var(--gold)}
+.hint{font-size:12px;line-height:1.45;color:rgba(243,239,226,.7);margin:5px 0 0}
+.credit{grid-column:1/-1;margin:0 0 10px;padding-top:8px;border-top:2px dashed rgba(243,239,226,.2);font-size:11px;line-height:1.5;color:rgba(243,239,226,.62)}
+.credit .keys{display:block;color:rgba(243,239,226,.8);margin-top:2px}
+/* commentary history: bottom-right above the ticker */
+.feed{right:calc(14px + var(--sar));bottom:calc(94px + var(--sab));width:min(440px,calc(100vw - 28px));max-height:min(62dvh,560px);background-color:rgba(26,20,35,.9);background-image:none;box-shadow:0 0 0 2px #fffdf8,8px 8px 0 4px rgba(26,20,35,.3);color:#fffdf8}
+.feed .sh-head{border-bottom:2px solid rgba(255,253,248,.18)}
+.feed .sh-head h2{color:#fffdf8}
+#feed{list-style:none;margin:0;padding:4px 8px 8px 12px;overflow:auto;flex:1 1 auto;min-height:0}
+#feed li{display:grid;grid-template-columns:42px 1fr;gap:8px;padding:7px 2px;border-bottom:1px solid rgba(255,253,248,.12);font-size:14px;line-height:1.45}
+#feed li b{font:700 12px/1.7 var(--mono);color:var(--gold)}
+#feed li.goal{background:rgba(255,209,102,.16)}
 .feed.off #feed{display:none}
 .feed.off .offnote{display:block}
-.offnote{display:none;color:var(--muted);font-size:13px;margin:0}
-.loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(26,20,35,.55);color:#fffdf8;font:700 14px/1.4 var(--cjk);letter-spacing:.08em;pointer-events:none;transition:opacity .4s}
+.offnote{display:none;color:rgba(255,253,248,.7);font-size:13px;margin:12px 16px}
+/* ---------- loading ---------- */
+.loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(26,20,35,.55);color:#fffdf8;font:700 14px/1.4 var(--cjk);letter-spacing:.08em;pointer-events:none;transition:opacity .4s;z-index:9}
 .loading.done{opacity:0}
-footer{margin-top:26px;padding-top:12px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
-@media (max-width:860px){
-  .layout{grid-template-columns:1fr}
+/* ---------- narrow screens: title hides, board/history become bottom sheets ---------- */
+@media (max-width:900px){ .title{display:none} }
+@media (max-width:700px){
+  .hud{top:calc(8px + var(--sat));left:calc(8px + var(--sal));transform:none;align-items:flex-start}
+  .tvbar{height:30px}
+  .tvbar .tm{padding:0 7px;font-size:13px;gap:5px}
+  .tvbar .score{padding:0 7px;font-size:16px}
+  .tvbar .clk{padding:0 7px;font-size:13px}
+  .hudr{top:calc(48px + var(--sat));right:calc(8px + var(--sar));flex-direction:column}
+  .banner{top:calc(66px + var(--sat));white-space:normal;text-align:center;width:max-content;max-width:calc(100% - 80px)}
+  .dock{left:calc(8px + var(--sal));right:calc(8px + var(--sar));bottom:calc(8px + var(--sab));gap:10px}
+  .badge{min-width:64px;padding:5px 7px 4px}
+  .badge kbd{display:none}
+  .tk-more{padding:0 8px}
+  .tk-more .caret{display:none}
+  .tk-tag{padding:0 7px;writing-mode:vertical-rl;letter-spacing:.1em;font-size:12px}
+  .tk-line{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:13px}
+  .tk-line.prev{-webkit-line-clamp:1;font-size:11px}
+  .board,.feed{left:0;right:0;bottom:0;width:100%;max-height:72dvh;padding-bottom:var(--sab);box-shadow:0 -4px 0 0 var(--wood),0 -6px 0 0 var(--woodD)}
+  .feed{box-shadow:0 -2px 0 0 #fffdf8}
+  .sheet.open{animation:sheetUp .2s steps(5,end)}
+  @keyframes sheetUp{from{transform:translateY(40%);opacity:.3}to{transform:none;opacity:1}}
+  .sh-head::before{content:"";position:absolute;left:50%;top:4px;width:36px;height:4px;margin-left:-18px;background:rgba(243,239,226,.35)}
+  .sheet{position:absolute}
+  .bgrid{grid-template-columns:1fr;gap:12px}
+  .seg button,.btn,select{min-height:40px}
 }
-@media (max-width:600px){
-  .wrap{padding:14px 12px 22px}
-  .layout{display:flex;flex-direction:column;gap:16px;align-items:stretch}
-  .layout>main{display:contents}
-  .stage{order:1}
-  .panel{order:2}
-  .feed{order:3}
-  .stage{aspect-ratio:4/3;margin:0 -12px;border-radius:0;border-left:0;border-right:0}
-  .feed{margin-top:0}
+/* phone landscape / short windows: board slides in from the left as a drawer */
+@media (max-height:520px) and (min-aspect-ratio:4/3){
+  .hud{left:50%;transform:translateX(-50%);align-items:center;top:calc(6px + var(--sat))}
+  .hudr{top:calc(6px + var(--sat));right:calc(8px + var(--sar));flex-direction:row}
+  .banner{top:calc(58px + var(--sat))}
+  .dock{bottom:calc(6px + var(--sab))}
+  .tk-lines{min-height:40px;padding:4px 10px}
+  .tk-line{white-space:nowrap;display:block}
+  .tk-line.prev{display:none}
+  .tk-tag{writing-mode:horizontal-tb}
+  .board{left:0;top:0;bottom:0;right:auto;width:min(400px,58vw);max-height:none;padding-left:var(--sal);box-shadow:4px 0 0 0 var(--wood),6px 0 0 0 var(--woodD)}
+  .feed{left:auto;right:0;top:0;bottom:0;width:min(420px,60vw);max-height:none;padding-right:var(--sar)}
+  .bgrid{grid-template-columns:1fr}
+  .sh-head::before{display:none}
 }
+/* big desktop screens: scale the overlay UI up a notch (canvas pixels already scale by integer steps) */
+@media (min-width:1600px) and (min-height:900px){ .title,.hud,.hudr,.dock,.banner,.sheet{zoom:1.2} }
+@media (prefers-reduced-motion:reduce){ .sheet.open,.tk-line.in{animation:none} .badge{transition:none} }
 </style>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
 </script>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div class="kicker">像素立体模型</div>
-    <h1>第12学校的五人制足球赛</h1>
-    <p class="dek">一座漂浮的校园操场：四支原创球队在你选定的场地上，踢一场完整的五人制足球赛。</p>
-  </header>
-  <div class="layout">
-    <main>
-      <div class="stage" id="stage">
-        <canvas id="view" aria-label="校园五人制足球比赛的像素风三维画面"></canvas>
-        <div class="hud" aria-live="off">
-          <div class="row"><span class="chip" id="hChip"></span><span id="hName">主队</span><span class="sc" id="hScore">0</span>–<span class="sc" id="aScore">0</span><span id="aName">客队</span><span class="chip" id="aChip"></span></div>
-          <div class="row"><span id="clock">00:00</span><span class="ph" id="phase">球员入场</span></div>
-        </div>
-        <div class="hudr">
-          <button id="rotL" title="向左旋转" aria-label="向左旋转视角">&#x27F2;</button>
-          <button id="rotR" title="向右旋转" aria-label="向右旋转视角">&#x27F3;</button>
-          <button id="zoomIn" title="放大" aria-label="放大">+</button>
-          <button id="zoomOut" title="缩小" aria-label="缩小">&minus;</button>
-          <button id="sndQuick" title="开启声音" aria-label="开启声音" aria-pressed="false"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 7h3l4-3v12l-4-3H3z" fill="currentColor"/><path d="M13 7l5 6M18 7l-5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
-        </div>
-        <div class="banner" id="banner"></div>
-        <div class="loading" id="loading">正在搭建校园操场……</div>
-      </div>
-      <section class="feed" id="feedWrap">
-        <h2 style="margin-top:16px">比赛解说</h2>
-        <p class="offnote">解说已隐藏。</p>
-        <ol id="feed"></ol>
-      </section>
-    </main>
-    <aside class="panel" id="panel">
-      <h2>比赛控制</h2>
-      <div class="ctl">
+<div class="stage" id="stage">
+  <canvas id="view" aria-label="校园五人制足球比赛的像素风三维画面"></canvas>
+
+  <div class="title" aria-hidden="true"><span class="kicker">像素立体模型</span><span>第12学校的五人制足球赛</span></div>
+
+  <!-- TV-style score strip (the 3D scoreboard in the scene stays as scenery) -->
+  <div class="hud" aria-live="off">
+    <div class="tvbar">
+      <span class="tm tmh"><span class="chip" id="hChip"></span><span id="hName">主队</span></span>
+      <span class="score"><span class="sc" id="hScore">0</span><i>–</i><span class="sc" id="aScore">0</span></span>
+      <span class="tm tma"><span id="aName">客队</span><span class="chip" id="aChip"></span></span>
+      <span class="clk" id="clock">00:00</span>
+    </div>
+    <div class="ph" id="phase">球员入场</div>
+  </div>
+
+  <div class="hudr">
+    <button id="rotL" title="向左旋转" aria-label="向左旋转视角">&#x27F2;</button>
+    <button id="rotR" title="向右旋转" aria-label="向右旋转视角">&#x27F3;</button>
+    <button id="zoomIn" title="放大" aria-label="放大">+</button>
+    <button id="zoomOut" title="缩小" aria-label="缩小">&minus;</button>
+    <button id="sndQuick" title="开启声音" aria-label="开启声音" aria-pressed="false"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 7h3l4-3v12l-4-3H3z" fill="currentColor"/><path d="M13 7l5 6M18 7l-5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+  </div>
+
+  <div class="banner" id="banner"></div>
+
+  <!-- bottom dock: tactics-board badge + commentary ticker -->
+  <div class="dock">
+    <button class="badge" id="boardBadge" aria-expanded="false" aria-controls="panel" title="打开战术板（快捷键 M）">
+      <svg class="chalkcourt" viewBox="0 0 44 26" width="44" height="26" aria-hidden="true" shape-rendering="crispEdges">
+        <g fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1" y="1" width="42" height="24"/><path d="M22 1v24"/><rect x="18" y="9" width="8" height="8"/><path d="M1 8h5v10H1M43 8h-5v10h5"/></g>
+        <g stroke="#ffd166" stroke-width="1.6"><path d="M9 6l3 3M12 6l-3 3"/><path d="M13 17l3 3M16 17l-3 3"/></g>
+        <circle cx="31" cy="9" r="2" fill="none" stroke="#8fd3ff" stroke-width="1.4"/><circle cx="33" cy="19" r="2" fill="none" stroke="#8fd3ff" stroke-width="1.4"/>
+        <path d="M12 8q8-8 15 2" fill="none" stroke="#fffdf8" stroke-width="1.2" stroke-dasharray="2 1.6"/><path d="M27 10l-3 0M27 10l0-3" stroke="#fffdf8" stroke-width="1.2"/>
+      </svg>
+      <span class="blab">战术板</span><kbd>M</kbd>
+    </button>
+    <button class="ticker" id="ticker" aria-controls="feedWrap" aria-expanded="false" title="查看全部解说">
+      <span class="tk-tag">解说</span>
+      <span class="tk-lines" id="tkLines" aria-live="polite"><span class="tk-line tk-idle">比赛即将开始……</span></span>
+      <span class="tk-more" aria-hidden="true">全部<span class="caret">▸</span></span>
+    </button>
+  </div>
+
+  <!-- commentary history (overlay, opened from the ticker) -->
+  <section class="sheet feed" id="feedWrap" aria-label="比赛解说" role="dialog">
+    <div class="sh-head"><h2>比赛解说 · 全部</h2><button class="x" id="feedClose" aria-label="关闭解说">✕</button></div>
+    <p class="offnote">解说已隐藏。可在战术板“播放”一栏重新打开。</p>
+    <ol id="feed"></ol>
+  </section>
+
+  <!-- the coach's tactics board: every match control lives here -->
+  <aside class="sheet board" id="panel" aria-label="战术板" role="dialog">
+    <div class="sh-head"><h2>战术板 <small>比赛控制</small></h2><button class="x" id="boardClose" aria-label="收起战术板">✕</button></div>
+    <div class="bgrid">
+      <div class="ctl wide">
         <span class="lab">对阵</span>
-        <div class="row2"><select id="homeSel" aria-label="主队"></select><span class="vs">对</span><select id="awaySel" aria-label="客队"></select></div>
-        <div class="row2" style="margin-top:6px"><button class="btn" id="randomBtn">随机对阵</button></div>
+        <div class="row2"><select id="homeSel" aria-label="主队"></select><span class="vs">对</span><select id="awaySel" aria-label="客队"></select><button class="btn" id="randomBtn">随机</button></div>
       </div>
-      <div class="ctl"><span class="lab">比赛时长（现实时间）</span><div class="seg" id="lenSeg"><button data-v="4">4 分钟</button><button data-v="8">8 分钟</button><button data-v="12">12 分钟</button><button data-v="20">20 分钟</button></div></div>
       <div class="ctl"><span class="lab">场地材质</span><div class="seg" id="surfSeg"><button data-v="rubber">橡胶</button><button data-v="asphalt">沥青</button><button data-v="turf">人造草</button><button data-v="parquet">木地板</button></div></div>
       <div class="ctl"><span class="lab">时段</span><div class="seg" id="todSeg"><button data-v="day">白天</button><button data-v="dusk">黄昏</button><button data-v="night">夜晚</button></div></div>
       <div class="ctl"><span class="lab">镜头</span><div class="seg" id="camSeg"><button data-v="tv">转播跟随</button><button data-v="full">全场</button><button data-v="close">特写</button></div></div>
-      <div class="ctl"><span class="lab">观众互动</span>
+      <div class="ctl"><span class="lab">比赛时长（现实时间）</span><div class="seg" id="lenSeg"><button data-v="4">4 分钟</button><button data-v="8">8 分钟</button><button data-v="12">12 分钟</button><button data-v="20">20 分钟</button></div></div>
+      <div class="ctl wide"><span class="lab">观众互动 <em>也可以点击球场，标记下一脚传球的落点</em></span>
         <div class="row2"><button class="btn" id="actShoot">射门！</button><button class="btn" id="actSquare">横传</button><button class="btn" id="actLong">长传</button></div>
-        <p class="hint">也可以点击球场，标记下一脚传球的落点。</p>
       </div>
-      <div class="ctl"><span class="lab">播放</span>
-        <div class="row2"><button class="btn" id="pauseBtn" aria-pressed="false">暂停</button><div class="seg" id="speedSeg"><button data-v="1">1×</button><button data-v="2">2×</button></div></div>
-        <div class="row2" style="margin-top:6px"><button class="btn" id="feedBtn" aria-pressed="true">解说：开</button><button class="btn" id="restartBtn">重新开始</button></div>
+      <div class="ctl wide"><span class="lab">播放</span>
+        <div class="row2"><button class="btn" id="pauseBtn" aria-pressed="false">暂停</button><div class="seg" id="speedSeg"><button data-v="1">1×</button><button data-v="2">2×</button></div><button class="btn" id="feedBtn" aria-pressed="true">解说：开</button><button class="btn" id="restartBtn">重新开始</button></div>
       </div>
-      <div class="ctl"><span class="lab">声音</span>
+      <div class="ctl wide"><span class="lab">声音</span>
         <div class="row2 sndrow"><button class="btn" id="soundBtn" aria-pressed="false">开启声音</button><input type="range" id="volSlider" min="0" max="100" value="70" aria-label="音量"></div>
+        <div class="row2 sndrow ambrow"><label class="amblab" for="ambSlider">看台氛围</label><input type="range" id="ambSlider" min="0" max="100" value="35" aria-label="看台氛围音量（0 为关闭）"><span class="ambval" id="ambVal">35</span></div>
         <p class="hint" id="soundHint">默认静音。点“开启声音”后可听到哨声、球声和看台观众。</p>
       </div>
-    </aside>
-  </div>
-  <footer>所有人物、球队与美术均为原创。声音为程序实时合成；裁判哨声、进球欢呼与叹息来自 Freesound 的 CC0（公共领域）录音，详见 README。</footer>
+    <p class="credit wide">一座漂浮的校园操场：四支原创球队在你选定的场地上，踢一场完整的五人制足球赛。所有人物、球队与美术均为原创。声音为程序实时合成；裁判哨声、进球欢呼与叹息来自 Freesound 的 CC0（公共领域）录音，详见 README。<span class="keys">快捷键：M 打开/收起战术板 · Esc 关闭</span></p>
+    </div>
+  </aside>
+
+  <div class="loading" id="loading">正在搭建校园操场……</div>
 </div>
 
 <script type="module">
@@ -260,16 +385,24 @@ function makeRT() {
   postMat.uniforms.tDepth.value = dt;
   postMat.uniforms.res.value.set(RW, RH);
 }
+let PXS = 1;   // device pixels per art pixel (integer)
 function resize() {
-  const w = stage.clientWidth || 640, h = stage.clientHeight || 400;
-  RW = CFG.rtW; RH = Math.max(120, Math.round(RW * h / w));
+  const w = stage.clientWidth || innerWidth || 640, h = stage.clientHeight || innerHeight || 400, dpr = window.devicePixelRatio || 1;
+  const wd = Math.round(w * dpr), hd = Math.round(h * dpr);
+  const s = Math.max(1, Math.round(wd / CFG.rtW));
+  const nw = Math.ceil(wd / s), nh = Math.max(60, Math.ceil(hd / s));
+  PXS = s;
+  canvas.style.width = (nw * s / dpr) + 'px'; canvas.style.height = (nh * s / dpr) + 'px';
+  canvas.style.left = (Math.floor((wd - nw * s) / 2) / dpr) + 'px'; canvas.style.top = (Math.floor((hd - nh * s) / 2) / dpr) + 'px';
+  if (nw === RW && nh === RH && RT) return;
+  RW = nw; RH = nh;
   renderer.setSize(RW, RH, false);
   makeRT();
   updateCameraFrustum();
 }
 function updateCameraFrustum() {
   const aspect = RW / RH;
-  const halfW = CAM.baseW / 2 / (CAM.zoom * CAM.userZoom);
+  const z = CAM.zoom * CAM.userZoom, halfW = Math.max(CAM.baseW / 2, CAM.baseW / 2 / 1.6 * aspect) * (aspect < 1 ? Math.max(0.72, Math.pow(aspect, 0.4)) : 1) / z;
   const halfH = halfW / aspect;
   camera.left = -halfW; camera.right = halfW; camera.top = halfH; camera.bottom = -halfH;
   camera.updateProjectionMatrix();
@@ -2057,7 +2190,7 @@ function say(text, cls = '') {
   const li = document.createElement('li'); if (cls) li.className = cls;
   const b = document.createElement('b'); b.textContent = min;
   const sp = document.createElement('span'); sp.textContent = text;
-  li.append(b, sp); feedEl.prepend(li);
+  li.append(b, sp); feedEl.prepend(li); tickerPush(min, text, cls);
   while (feedEl.children.length > 150) feedEl.lastChild.remove();
 }
 let bannerTimer = 0, bannerSimUntil = 0;
@@ -2432,6 +2565,26 @@ function SND_FACTORY() {
     return normRMS(makeLoop(ch, sr, 1.0), 0.1);
   }
 
+  // a single cough / throat-clear: 1-3 noisy bursts through a voiced formant, no tail
+  function synthCough(sr, R) {
+    const n = R() < 0.5 ? 1 : R() < 0.6 ? 2 : 3, dur = 0.25 + n * 0.32, N = Math.ceil(dur * sr), out = new Float32Array(N), nz = noiseGen(61 + ((R() * 1e5) | 0));
+    const f1 = 380 + R() * 380, f2 = 1100 + R() * 900, A = new Filt().set('bp', f1, 2.2, sr), B = new Filt().set('bp', f2, 3, sr), H = new Filt().set('hp', 180, 0.7, sr);
+    let t0 = 0.02, ph = 0; const f0 = 110 + R() * 140;
+    for (let k = 0; k < n; k++) {
+      const d = (k === 0 ? 0.16 : 0.1) + R() * 0.1, amp = 1 - k * (0.2 + R() * 0.15), i0 = Math.floor(t0 * sr), i1 = Math.min(N, i0 + Math.floor(d * sr));
+      for (let i = i0; i < i1; i++) { const u = (i - i0) / (i1 - i0), e = Math.min(1, u / 0.06) * Math.pow(1 - u, 1.6) * amp; ph += f0 * (1 - 0.3 * u) / sr; const v = nz() * 0.8 + Math.sin(TAU * ph) * 0.35 * (u < 0.5 ? 1 : 0); out[i] += (A.p(v) * 1.2 + B.p(v) * 0.7) * e; }
+      t0 += d + 0.06 + R() * 0.12;
+    }
+    for (let i = 0; i < N; i++) out[i] = H.p(out[i]);
+    normPeak([out], 0.6); const o2 = out.slice(); return [out, o2];
+  }
+  // very quiet distant air for the far bed: brown-ish noise with slow random swells (no voices)
+  function addAir(ch, sr, R, amp) {
+    const N = ch[0].length;
+    for (let c = 0; c < 2; c++) { const nz = noiseGen(71 + c + ((R() * 1e4) | 0)), F = new Filt().set('lp', 420 + R() * 200, 0.6, sr); let sw = 0.5, tg = 0.5; for (let i = 0; i < N; i++) { if (i % 4410 === 0) tg = 0.3 + R() * 0.7; sw += (tg - sw) * 0.00008; ch[c][i] += F.p(nz()) * amp * sw; } }
+    return ch;
+  }
+
   // ---------- recipe list (what Engine.init renders) ----------
   const CSR = 22050; // crowd sample rate (resampled by Web Audio)
   function crowdRecipes(R) {
@@ -2453,6 +2606,15 @@ function SND_FACTORY() {
       return normPeak(ch, 0.55 + R() * 0.2); } });
     L.push({ name: 'applause0', crowd: true, make: () => normRMS(synthApplause(CSR, 7, R, { n: 34, rate: 3.8, startSpread: 0.6, tail: 3.5, env: t => t < 1.5 ? 1 : Math.max(0, 1 - (t - 1.5) / 5) }), 0.12) });
     L.push({ name: 'applause1', crowd: true, make: () => normRMS(synthApplause(CSR, 5, R, { n: 22, rate: 3.4, startSpread: 0.5, tail: 2.5, env: t => Math.max(0, 1 - t / 4.6) }), 0.1) });
+    // --- appended last so every earlier buffer keeps its exact random draw (blind-tested sounds unchanged)
+    // sparse ambience (2026-11-03): six distinct 11 s distant-murmur chunks (66 s of material, spliced at random, never looped)
+    for (let k = 0; k < 6; k++) L.push({ name: 'far' + k, crowd: true, make: () => { const ch = crowdVoices(CSR, 11, R, { n: 5 + ((R() * 5) | 0), kid: 0.5, fem: 0.55, width: 0.9, gain: 0.8, bright: 0.2, jit: 0.03, br: 0.05, dpow: 1.2, lpMax: 1500, plan: () => planBabble(R, 11, { talk: 0.32 + R() * 0.2, slow: 1 + R() * 0.15, laugh: 0.04 }) }); addAir(ch, CSR, R, 0.25); ch.forEach(c => { filtArr(c, 'hp', 140, 0.7, CSR); filtArr(c, 'lp', 2400, 0.6, CSR); }); return normRMS(ch, 0.1); } });
+    // short one-off snippets: a couple of people chatting, a laugh, a cough (each different)
+    for (let k = 0; k < 14; k++) L.push({ name: 'chat' + k, crowd: true, make: () => { const d = 1.2 + R() * 1.8; const ch = crowdVoices(CSR, d, R, { n: 1 + ((R() * 2.4) | 0), kid: R() < 0.5 ? 0.85 : 0.2, fem: R(), width: 0.25, gain: 1, bright: 0.2 + R() * 0.15, jit: 0.03, br: 0.05 + R() * 0.05, plan: () => planBabble(R, d - 0.3, { talk: 1, slow: 0.9 + R() * 0.3, p: 0.92 + R() * 0.2, laugh: 0.08 }) }); ch.forEach(c => filtArr(c, 'hp', 160, 0.7, CSR)); return normPeak(ch, 0.5); } });
+    for (let k = 0; k < 4; k++) L.push({ name: 'laugh' + k, crowd: true, make: () => normPeak(crowdVoices(CSR, 1.6, R, { n: 1 + ((R() * 2) | 0), kid: 0.6, fem: 0.6, width: 0.3, br: 0.15, plan: () => planBabble(R, 1.3, { laugh: 1, p: 0.95 + R() * 0.15 }) }), 0.45) });
+    for (let k = 0; k < 6; k++) L.push({ name: 'cough' + k, crowd: true, make: () => synthCough(CSR, R) });
+    // more foul-protest variants (with the quieter bed the two old ones were easy to spot): fewer/more voices, own length
+    for (let k = 2; k < 7; k++) L.push({ name: 'protest' + k, crowd: true, make: () => { const d = 1.3 + R() * 0.8; return normRMS(crowdVoices(CSR, d, R, { n: 10 + ((R() * 18) | 0), kid: 0.25 + R() * 0.3, fem: 0.4 + R() * 0.2, br: 0.08 + R() * 0.08, plan: () => planReaction(R, 'protest', { spread: 0.25 + R() * 0.2 }) }), 0.1); } });
     return L;
   }
   function sfxRecipes(R, sr) {
@@ -2534,8 +2696,52 @@ function SND_FACTORY() {
       });
       this.rollG = c.createGain(); this.rollG.gain.value = 0; this.rollPan = c.createStereoPanner(); this.rollG.connect(this.rollPan); this.rollPan.connect(this.sfx);
       this.surface = o.surface || 'rubber'; this.amb = 1; this.tension = 0; this.lastTenT = -1;
+      this.ambUser = o.ambience != null ? clamp(+o.ambience, 0, 1) : Engine.AMB_DEFAULT; this.ambSeen = -1; this.snipNext = 0; this.lastStand = -1;
+      for (const st of this.stands) { st.snip = c.createGain(); st.snip.gain.value = 1; st.snip.connect(st.pan); }
     }
     get time() { return this.ctx.currentTime; }
+    // user "看台氛围" level 0..1; AMB_DEFAULT = the designed level (bed about -9 dB under the old continuous murmur), 1 = roughly the old level
+    get ambK() { return this.ambUser / Engine.AMB_DEFAULT * (this.ambUser > 0 ? 1 : 0); }
+    setAmbience(v, when) { this.ambUser = clamp(+v || 0, 0, 1); this.lastTenT = -1; this.ambSeen = -1; if (this.started) this.update({ tension: this.tension, amb: this.amb }, when != null ? when : this.ctx.currentTime, 1); }
+    // one grain of a spliced bed: random chunk, random offset/rate/filter, equal-power fades; returns when the next grain should start
+    grain(prefix, dest, when, dur, xf, gain, o = {}) {
+      const b = this.pick(prefix); if (!b) return when + dur; const R = this.R, c = this.ctx;
+      xf = Math.min(xf, dur * 0.45);
+      const rate = (o.r0 || 0.92) + R() * (o.rr || 0.16), span = Math.max(0, b.duration - dur * rate - 0.05);
+      const s = c.createBufferSource(); s.buffer = b; s.playbackRate.value = rate;
+      const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = (o.lp0 || 900) + R() * (o.lpr || 1600); f.Q.value = 0.5;
+      const g = c.createGain(); s.connect(f); f.connect(g); g.connect(dest);
+      const t = Math.max(when, c.currentTime), n = 24, up = new Float32Array(n), dn = new Float32Array(n);
+      for (let i = 0; i < n; i++) { const u = i / (n - 1); up[i] = Math.sin(u * Math.PI / 2) * gain; dn[i] = Math.cos(u * Math.PI / 2) * gain; }
+      g.gain.setValueAtTime(0, t); g.gain.setValueCurveAtTime(up, t, xf); g.gain.setValueCurveAtTime(dn, t + dur - xf, xf);
+      s.start(t, R() * span); s.stop(t + dur + 0.05);
+      return t + dur - xf;
+    }
+    // sparse, aperiodic ambience: spliced far bed + spliced tension layer per stand, and one-off snippets from random stands
+    schedule(when) {
+      if (this.useRec('murmur')) return;
+      const R = this.R, H = when + 1.2, on = this.ambUser > 0.001;
+      for (const st of this.stands) {
+        if (st.bedNext == null) { st.bedNext = when + R() * 1.5; st.tenNext = when + R(); }
+        while (st.bedNext < H) { const d = 4.5 + R() * 5.5; st.bedNext = on ? this.grain('far', st.mur, st.bedNext, d, 1.6 + R() * 1.4, 0.8 + R() * 0.4, { lp0: 520, lpr: 680 }) : st.bedNext + d; }
+        while (st.tenNext < H) { const d = 2.6 + R() * 3.6; st.tenNext = on ? this.grain('excited', st.ten, st.tenNext, d, 0.9 + R() * 0.6, 1, { r0: 0.96, rr: 0.1, lp0: 2600, lpr: 2600 }) : st.tenNext + d; }
+      }
+      if (!this.snipNext) this.snipNext = when + 1.5 + R() * 4;
+      while (this.snipNext < H) {
+        const t = this.snipNext, tt = this.tension;
+        // gaps of a few to fifteen seconds (skewed short-ish, never regular); calmer play = longer gaps
+        this.snipNext = t + (2.5 + Math.pow(R(), 1.4) * 12.5) * (1 - 0.35 * tt);
+        if (!on || this.amb < 0.3) continue;
+        let k = (R() * this.stands.length) | 0; if (k === this.lastStand && this.stands.length > 1) k = (k + 1 + ((R() * (this.stands.length - 1)) | 0)) % this.stands.length; this.lastStand = k;
+        const st = this.stands[k], r = R();
+        const kind = r < 0.5 ? 'chat' : r < 0.66 ? 'cough' : r < 0.8 ? 'laugh' : 'shout';
+        const b = this.pick(kind); if (!b) continue;
+        const base = { chat: 0.095, cough: 0.06, laugh: 0.07, shout: 0.05 }[kind] * (0.55 + R() * 0.7) * this.ambK * Math.min(1.2, this.amb) * (1 + 0.5 * tt);
+        const len = kind === 'chat' ? Math.min(b.duration, 0.8 + R() * (b.duration - 0.6)) : 0;
+        const pl = this.play(b, t, { dest: st.snip, gain: base, rate: 0.88 + R() * 0.24, pan: clamp((R() - 0.5) * 0.7, -1, 1), lp: 1400 + R() * 3600, send: 0.05 + R() * 0.2, fade: kind === 'chat' ? 0.04 : 0 });
+        if (pl && len) { pl.g.gain.setTargetAtTime(0, t + len - 0.12, 0.05); pl.s.stop(t + len + 0.4); }
+      }
+    }
     setVolume(v, when) { const t = when != null ? when : this.ctx.currentTime; this.master.gain.setTargetAtTime(v, t, 0.05); }
     toBuffer(ch, sr) { const b = this.ctx.createBuffer(ch.length, ch[0].length, sr); ch.forEach((c, i) => b.copyToChannel(c, i)); return b; }
     // CC0 recordings: one MP3 sprite + {name:[start,dur]} map -> this.recs[prefix] = [AudioBuffer...]
@@ -2592,12 +2798,16 @@ function SND_FACTORY() {
     start(when) {
       if (this.started) return; this.started = true;
       const R = this.R;
+      if (!this.useRec('murmur')) {   // synthesized ambience: nothing loops; schedule() splices grains + one-off snippets
+        for (const st of this.stands) { st.murK = 1; st.mur.gain.setValueAtTime(0, when); st.mur.gain.setTargetAtTime(Engine.BED * this.ambK * this.amb, when, 1.5); }
+        this.schedule(when); this.setSurface(this.surface, when); return;
+      }
       for (const st of this.stands) {
         const recM = this.useRec('murmur') && st.i < this.recs.murmur.length, m = recM ? this.recs.murmur[st.i] : this.buf['murmur' + (st.i % 2)], e = this.buf['excited' + (st.i % 2)];
         st.murK = recM ? 1.3 : this.useRec('murmur') ? 0.8 : 1;   // with a recorded bed, an extra stand only adds a little synthetic kids' chatter
         st.murSrc = this.play(m, when, { loop: true, dest: st.mur, offset: R() * 12 + st.i * 5.3, rate: 0.96 + R() * 0.08, gain: 1, lp: recM ? 3200 : 0 });
         st.tenSrc = this.play(e, when, { loop: true, dest: st.ten, offset: R() * 12, rate: 0.97 + R() * 0.06, gain: 1 });
-        st.mur.gain.setValueAtTime(0, when); st.mur.gain.setTargetAtTime(0.42 * st.murK * this.amb, when, 1.2);
+        st.mur.gain.setValueAtTime(0, when); st.mur.gain.setTargetAtTime(0.42 * st.murK * this.amb * this.ambK, when, 1.2);
       }
       this.setSurface(this.surface, when);
     }
@@ -2614,12 +2824,15 @@ function SND_FACTORY() {
       const tt = clamp(sn.tension || 0, 0, 1), amb = sn.amb != null ? sn.amb : 1;
       if (Math.abs(tt - this.tension) > 0.03 || amb !== this.amb || when - this.lastTenT > 0.5) {
         const up = tt > this.tension; this.tension = tt; this.amb = amb; this.lastTenT = when;
+        const rec = this.useRec('murmur'), aK = this.ambK;
         for (const st of this.stands) {
-          st.ten.gain.setTargetAtTime(0.55 * Math.pow(tt, 1.3) * Math.min(1, amb), when, (up ? 0.7 : 2.6) * k);
-          st.mur.gain.setTargetAtTime(0.42 * (st.murK ?? 1) * amb * (1 - 0.2 * tt), when, (up ? 0.9 : 2.6) * k);
+          // tension layer: silent in calm play, rises with pressure on goal (scaled by the user's ambience level)
+          st.ten.gain.setTargetAtTime((rec ? 0.55 : Engine.TEN) * Math.pow(tt, 1.3) * Math.min(1, amb) * aK, when, (up ? 0.7 : 2.6) * k);
+          st.mur.gain.setTargetAtTime(rec ? 0.42 * (st.murK ?? 1) * amb * (1 - 0.2 * tt) * aK : Engine.BED * amb * (1 + 0.8 * tt) * aK, when, (up ? 0.9 : 2.6) * k);
           if (st.tenSrc) st.tenSrc.s.playbackRate.setTargetAtTime(0.98 + 0.06 * tt, when, 0.8 * k);
         }
       }
+      this.schedule(when);
       if (sn.pans) sn.pans.forEach((p, i) => { const st = this.stands[i]; if (st) st.pan.pan.setTargetAtTime(clamp(p, -0.9, 0.9), when, 0.2); });
       if (sn.sw) sn.sw.forEach((w, i) => { const st = this.stands[i]; if (st && Math.abs((st.wNow ?? -1) - w) > 0.01) { st.wNow = w; st.g.gain.setTargetAtTime(w, when, 0.3); } });
       // rolling ball
@@ -2647,14 +2860,15 @@ function SND_FACTORY() {
         if (this.useRec(prefix)) { buf = this.recPick(prefix); rec = !!buf; }
         if (!buf) buf = this.pick(prefix);
         if (!buf) continue;
-        const jitter = R() * 0.05, rate = 0.95 + R() * 0.1;
+        const jitter = R() * 0.05, rate = kind === 'protest' ? 0.9 + R() * 0.2 : 0.95 + R() * 0.1;
         const fade = kind === 'surge' ? 0.45 : kind === 'cheer' ? 0.07 : kind === 'shout' ? 0 : 0.035;
         if (kind === 'surge') off = 0.6 + R() * 0.6;
         // recorded cheer over the synthesized bed: soften its indoor top end and let its tail melt away slowly (no noise-floor drop at the end)
-        const pl = this.play(buf, when + jitter, { dest: st.rx, gain: strength * w, rate, offset: off, fade, lp: rec && prefix === 'cheer' ? 5200 : 0 });
+        const pl = this.play(buf, when + jitter, { dest: st.rx, gain: strength * w, rate, offset: off, fade, lp: rec && prefix === 'cheer' ? 5200 : kind === 'protest' ? 2400 + R() * 3200 : 0 });
         if (!pl) continue;
         if (rec && prefix === 'cheer') pl.g.gain.setTargetAtTime(0, when + jitter + Math.max(1, (buf.duration - off) / rate - 3.2), 1.1);
         if (o.fadeAfter) pl.g.gain.setTargetAtTime(0, when + o.fadeAfter, 0.4);
+        if (!rec && (kind === 'protest' || kind === 'groan' || kind === 'gasp')) pl.g.gain.setTargetAtTime(0, when + jitter + buf.duration / rate - 0.45, 0.12);   // soft tail, never a cut
         this.react.push({ g: pl.g, prio, end: when + buf.duration / rate, kind });
       }
       this.react = this.react.filter(r => r.end > this.ctx.currentTime - 1);
@@ -2694,7 +2908,7 @@ function SND_FACTORY() {
           const p = clamp(((ev.spd || 6) - 3) / 17, 0, 1), hard = p > 0.55 || ev.kind === 'shot';
           this.play(this.pick(`${hard ? 'kickH' : 'kickS'}_${surf}`), when, { gain: (0.25 + 0.75 * p) * (0.85 + R() * 0.3), pan: ev.pan, rate: 0.92 + R() * 0.14 - p * 0.04, send: S.send });
           if (ev.kind === 'shot') { // crowd anticipation swell (rides the tension layer)
-            for (const st of this.stands) { st.ten.gain.cancelScheduledValues(when); st.ten.gain.setTargetAtTime(0.95, when + 0.05, 0.12); st.ten.gain.setTargetAtTime(0.55 * Math.pow(this.tension, 1.3) * Math.min(1, this.amb), when + 1.1, 0.8); }
+            for (const st of this.stands) { st.ten.gain.cancelScheduledValues(when); const aK = this.ambK, rec = this.useRec('murmur'); st.ten.gain.setTargetAtTime((rec ? 0.95 : 0.7) * Math.min(1.4, aK), when + 0.05, 0.12); st.ten.gain.setTargetAtTime((rec ? 0.55 : Engine.TEN) * Math.pow(this.tension, 1.3) * Math.min(1, this.amb) * aK, when + 1.1, 0.8); }
             this.lastTenT = when + 1.1;
           }
           if (S.squeak && R() < 0.12 * S.squeak) this.play(this.pick('squeak'), when + 0.05 + R() * 0.15, { gain: 0.12, pan: (ev.pan || 0) + (R() - 0.5) * 0.3 });
@@ -2722,21 +2936,22 @@ function SND_FACTORY() {
         case 'surge': this.crowdReact('surge', when, ev.home === false ? 0.25 : 0.45, W); return;
         case 'foul':
           this.play(this.pick('scuff'), when, { gain: 0.5, pan: ev.pan }); if (S.squeak) this.play(this.pick('squeak'), when + 0.02, { gain: 0.25 * S.squeak, pan: ev.pan });
-          this.crowdReact('protest', when + 0.22, 0.75, W); return;
+          this.crowdReact('protest', when + 0.22, 0.4 + R() * 0.2, W); return;
         case 'whistle': {
           const map = { foul: 'wShort_', restart: 'wShort_', kickoff: 'wLong_', half: 'wHalf', full: 'wFull' };
           this.whistle(map[ev.kind] || 'wShort_', when, ev.kind === 'restart' ? 0.8 : 1); return;
         }
         case 'applause': this.applause(when, ev.level || 0.5, W, ev.big); if (ev.cheer) this.crowdReact('cheer', when + 0.05, ev.cheer, W, { fadeAfter: 1.6 }); return;
-        case 'shout': { if (fast) return; const b = this.pick('shout'); this.play(b, when, { dest: this.stands[(R() * this.stands.length) | 0].rx, gain: (ev.level || 0.2) * (0.65 + R() * 0.3), rate: 0.88 + R() * 0.24, pan: (R() - 0.5) * 0.9, lp: 2200 + R() * 3500, send: 0.1 + R() * 0.25 }); return; }
+        case 'shout': { if (fast || this.ambUser <= 0.001) return; const b = this.pick('shout'); this.play(b, when, { dest: this.stands[(R() * this.stands.length) | 0].rx, gain: (ev.level || 0.2) * (0.65 + R() * 0.3) * Math.min(1.6, this.ambK) * 0.7, rate: 0.88 + R() * 0.24, pan: (R() - 0.5) * 0.9, lp: 2200 + R() * 3500, send: 0.1 + R() * 0.25 }); return; }
       }
     }
   }
+  Engine.AMB_DEFAULT = 0.35; Engine.BED = 0.075; Engine.TEN = 0.42;
   // offline helper: render the event log + snapshots into an AudioBuffer
   async function renderLog(o) {
     const sr = o.sr || 44100, t0 = o.t0, t1 = o.t1, pre = o.pre != null ? o.pre : 6, ta = Math.max(0, t0 - pre);
     const ctx = new OfflineAudioContext(2, Math.ceil((t1 - ta) * sr), sr);
-    const eng = new Engine(ctx, { seed: o.seed || 7, crowd: o.crowd, whistle: o.whistle, src: o.src, stands: o.stands, surface: o.surface, volume: o.volume });
+    const eng = new Engine(ctx, { seed: o.seed || 7, crowd: o.crowd, whistle: o.whistle, src: o.src, stands: o.stands, surface: o.surface, volume: o.volume, ambience: o.ambience });
     if (o.recSrc) { try { await eng.loadRecs(o.recSrc, o.recMap); } catch (e) { eng.allSynth(); } }
     await eng.init();
     const first = o.snaps.find(s => s.t >= ta) || o.snaps[0] || {};
@@ -2756,7 +2971,7 @@ function SND_FACTORY() {
     for (let i = i0; i < i1; i++) for (let c = 0; c < ch; c++) { out.setInt16(p, clamp(data[c][i], -1, 1) * 32767, true); p += 2; }
     return new Uint8Array(out.buffer);
   }
-  return { Engine, renderLog, wavBytes, mulberry, renderAll, synthAll, synth: { crowdVoices, planBabble, planReaction, planShout, synthApplause, synthWhistle, synthImpact, synthKick, synthRoll, synthClang, synthNet, synthFence, synthSqueak, synthNoiseCrowd, addFanWhistles, normRMS, normPeak, makeLoop, SURF_SND, CSR } };
+  return { Engine, renderLog, wavBytes, mulberry, renderAll, synthAll, synth: { crowdVoices, planBabble, planReaction, planShout, synthApplause, synthWhistle, synthImpact, synthKick, synthRoll, synthClang, synthNet, synthFence, synthSqueak, synthNoiseCrowd, synthCough, addFanWhistles, normRMS, normPeak, makeLoop, SURF_SND, CSR } };
 }
 const SND = SND_FACTORY();
 
@@ -2796,7 +3011,7 @@ function sndTension() {
 const AMB = { boot: 0.6, walkout: 0.8, warmup: 0.9, lineup: 1, kickoff: 1, play: 1, goal: 1, halftime: 1.15, fulltime: 1.1, handshake: 0.9, walkin: 0.55, post: 0.22 };
 function sndEv(type, d) { AUD.ev(type, d); }
 const AUD = {
-  ctx: null, eng: null, on: false, loading: false, vol: 0.7, q: [], log: [], snaps: [], lastSnap: -1, nextShout: 20, k: 0, cur: null,
+  ctx: null, eng: null, on: false, loading: false, vol: 0.7, amb: SND.Engine.AMB_DEFAULT, q: [], log: [], snaps: [], lastSnap: -1, nextShout: 20, k: 0, cur: null,
   mode: Q.get('crowd') || null, whistle: Q.get('whistle') || null, LAT: 0.02,
   get rate() { return STATE.speed * DEBUG_SPEED; },
   ev(type, d) {
@@ -2844,7 +3059,7 @@ const AUD = {
     if (!this.eng) {
       this.loading = true; this.ui('正在合成声音……');
       await resumed.catch(() => { });
-      const eng = new SND.Engine(this.ctx, { src: sndSrc(this.mode, this.whistle), surface: STATE.surface, volume: 0, stands: getStands().map(b => ({ pan: sndPan(b.cx, b.cz, 1.5), home: b.home, w: b.w })) });
+      const eng = new SND.Engine(this.ctx, { src: sndSrc(this.mode, this.whistle), surface: STATE.surface, volume: 0, ambience: this.amb, stands: getStands().map(b => ({ pan: sndPan(b.cx, b.cz, 1.5), home: b.home, w: b.w })) });
       if (eng.needsRecs()) { try { await eng.loadRecs('crowd-cc0.mp3', SPRITE_MAP); } catch (e) { eng.allSynth(); } }   // recordings missing -> every layer falls back to synthesis
       await eng.init(p => { if (p > 0.05) this.ui(`正在合成声音…… ${Math.round(p * 100)}%`); });
       eng.start(this.ctx.currentTime + 0.05);
@@ -2867,10 +3082,11 @@ const AUD = {
     if (p) { this.eng.setVolume(0); setTimeout(() => { if (STATE.paused) this.ctx.suspend(); }, 120); }
     else { this.ctx.resume().then(() => this.eng.setVolume(this.vol * this.vol)); }
   },
+  setAmb(v) { this.amb = v; try { localStorage.setItem('s12amb', String(v)); } catch (e) { } if (this.eng) this.eng.setAmbience(v, this.ctx.currentTime + this.LAT); $('ambVal').textContent = v > 0 ? String(Math.round(v * 100)) : '关'; },
   setVol(v) { this.vol = v; try { localStorage.setItem('s12vol', String(v)); } catch (e) { } if (this.on && this.eng) this.eng.setVolume(v * v); },
   async render(t0, t1, o = {}) { // offline: same engine + the logged events -> WAV (base64)
     const { buf, skip } = await SND.renderLog({ t0, t1, sr: o.sr || 44100, events: this.log, snaps: this.snaps, src: sndSrc(o.crowd || this.mode, o.whistle || this.whistle),
-      recSrc: Object.values(sndSrc(o.crowd || this.mode, o.whistle || this.whistle)).includes('rec') ? 'crowd-cc0.mp3' : null, recMap: SPRITE_MAP, seed: o.seed || 7, volume: o.volume ?? 0.49,
+      recSrc: Object.values(sndSrc(o.crowd || this.mode, o.whistle || this.whistle)).includes('rec') ? 'crowd-cc0.mp3' : null, recMap: SPRITE_MAP, seed: o.seed || 7, volume: o.volume ?? 0.49, ambience: o.ambience ?? this.amb,
       stands: getStands().map(b => ({ pan: 0, home: b.home, w: b.w })) });
     const bytes = SND.wavBytes(buf, skip);
     let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
@@ -2878,6 +3094,8 @@ const AUD = {
   },
 };
 try { const v = parseFloat(localStorage.getItem('s12vol')); if (v >= 0 && v <= 1) AUD.vol = v; } catch (e) { }
+try { const v = parseFloat(localStorage.getItem('s12amb')); if (v >= 0 && v <= 1) AUD.amb = v; } catch (e) { }
+if (Q.get('amb') != null && Q.get('amb') !== '' && isFinite(+Q.get('amb'))) AUD.amb = Math.max(0, Math.min(1, +Q.get('amb')));   // ?amb=0..1 (0 = stands ambience off)
 onBallBounce = v => sndEv('bounce', { v, x: ball.p.x, z: ball.p.z });
 document.addEventListener('visibilitychange', () => { if (!AUD.ctx || !AUD.on) return; if (document.hidden) AUD.ctx.suspend(); else if (!STATE.paused) AUD.ctx.resume(); });
 
@@ -2896,7 +3114,7 @@ function segInit(id, cur, fn) {
 function newMatch(hi, ai) {
   hi = +hi; ai = +ai; if (hi === ai) ai = (hi + 1) % CLUBS.length;
   homeSel.value = hi; awaySel.value = ai;
-  feedEl.innerHTML = '';
+  feedEl.innerHTML = ''; $('tkLines').innerHTML = '<span class="tk-line tk-idle">比赛即将开始……</span>';
   Object.assign(MATCH, { clock: 0, half: 1, pending: null, nudge: null, shot: null, pass: null, possTeam: null, cheer: null, wall: null,
     events: [], goals: 0, shots: 0, saves: 0, fouls: 0, subs: 0, state: 'walkout', phase: 'dead', hsGo: false });
   const hc = CLUBS[hi], ac = CLUBS[ai];
@@ -2931,9 +3149,11 @@ $('restartBtn').addEventListener('click', () => newMatch(homeSel.value, awaySel.
 $('soundBtn').addEventListener('click', () => AUD.toggle());
 $('sndQuick').addEventListener('click', () => AUD.toggle());
 $('volSlider').value = Math.round(AUD.vol * 100);
+$('ambSlider').value = Math.round(AUD.amb * 100); $('ambVal').textContent = AUD.amb > 0 ? String(Math.round(AUD.amb * 100)) : '关';
+$('ambSlider').addEventListener('input', e => AUD.setAmb(e.target.value / 100));
 $('volSlider').addEventListener('input', e => { AUD.setVol(e.target.value / 100); if (!AUD.on && +e.target.value > 0) AUD.enable(); });
 $('pauseBtn').addEventListener('click', e => { STATE.paused = !STATE.paused; AUD.setPaused(STATE.paused); e.currentTarget.textContent = STATE.paused ? '继续' : '暂停'; e.currentTarget.setAttribute('aria-pressed', String(STATE.paused)); });
-$('feedBtn').addEventListener('click', e => { STATE.feed = !STATE.feed; $('feedWrap').classList.toggle('off', !STATE.feed); e.currentTarget.textContent = STATE.feed ? '解说：开' : '解说：关'; e.currentTarget.setAttribute('aria-pressed', String(STATE.feed)); });
+$('feedBtn').addEventListener('click', e => { STATE.feed = !STATE.feed; $('feedWrap').classList.toggle('off', !STATE.feed); document.body.classList.toggle('feedoff', !STATE.feed); e.currentTarget.textContent = STATE.feed ? '解说：开' : '解说：关'; e.currentTarget.setAttribute('aria-pressed', String(STATE.feed)); });
 function nudge(type, label) {
   MATCH.nudge = { type }; marker.visible = false;
   showBanner(ball.owner && MATCH.phase === 'live' ? `看台：“${label}”` : `看台：“${label}”——留给下一位拿球的球员`);
@@ -3094,7 +3314,7 @@ window.__game = {
   get yaw() { return Math.round(CAM.yaw * 180 / Math.PI); }, get zoom() { return +CAM.userZoom.toFixed(2); },
   get paused() { return STATE.paused; }, get speed() { return STATE.speed; }, get fps() { return fps; }, get rt() { return [RW, RH]; },
   get nudge() { return MATCH.nudge ? MATCH.nudge.type : null; }, get marker() { return marker.visible; },
-  get feedOn() { return STATE.feed; }, get len() { return STATE.len; },
+  get feedOn() { return STATE.feed; }, get len() { return STATE.len; }, get boardOpen() { return UIX.isOpen(UIX.board); }, get historyOpen() { return UIX.isOpen(UIX.feed); }, get pxScale() { return PXS; },
   get lastLines() { return MATCH.events.slice(-8).map(e => e.min + ' ' + e.text); },
   get owner() { return ball.owner ? ball.owner.name : null; },
   chars() { return CHARS.filter(c => c.visible).map(c => [c.kind, c.name || '', +c.pos.x.toFixed(1), +c.pos.z.toFixed(1), c.anim]); },
@@ -3113,17 +3333,60 @@ window.__game = {
     for (let i = anims.length; i < pool.length; i++) pool[i].visible = false;
     ball.p.set(0, -5, 0);
   },
-  sound: { get log() { return AUD.log; }, get snaps() { return AUD.snaps; }, get on() { return AUD.on; }, get ready() { return !!(AUD.eng && AUD.eng.ready); }, get mode() { return AUD.mode; }, render: (t0, t1, o) => AUD.render(t0, t1, o), stands: () => getStands() },
+  sound: { get log() { return AUD.log; }, get snaps() { return AUD.snaps; }, get on() { return AUD.on; }, get ready() { return !!(AUD.eng && AUD.eng.ready); }, get mode() { return AUD.mode; }, get amb() { return AUD.amb; }, get engAmb() { return AUD.eng ? AUD.eng.ambUser : null; }, render: (t0, t1, o) => AUD.render(t0, t1, o), stands: () => getStands() },
   // capture mode (?capture=1): advance the sim by hand, rendering one frame at the end (deterministic A/V for clips)
   advance(sec, render = true) { const n = Math.round(sec / CFG.FIXED); for (let i = 0; i < n; i++) { simStep(CFG.FIXED); if (i % 3 === 2 || i === n - 1) { updateCamera(CFG.FIXED * 3); AUD.snap(); } } if (render) { if (MATCH.t > bannerSimUntil) bannerEl.classList.remove('on'); visuals(sec); renderFrame(); } return MATCH.t; },
   testSolvers, placeMarkerAt, setDebugSpeed(n) { DEBUG_SPEED = Math.max(1, Math.min(200, n)); }, debugView(x, y, z, zm) { CAM.dbg = [x, y, z, zm]; STATE.cam = 'debug'; }, courtToScreen(x, z) { const v = new V3(x, 0, z).project(camera); const r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; },
 };
+
+
+// ---------------- full-viewport layout: tactics board, commentary ticker + history ----------------
+const UIX = {
+  board: $('panel'), badge: $('boardBadge'), feed: $('feedWrap'), ticker: $('ticker'), swallow: false,
+  isOpen(el) { return el.classList.contains('open'); },
+  open(el, on) {
+    const btn = el === this.board ? this.badge : this.ticker;
+    if (on && el === this.board && this.isOpen(this.feed)) this.open(this.feed, false);
+    if (on && el === this.feed && this.isOpen(this.board)) this.open(this.board, false);
+    el.classList.toggle('open', on); btn.setAttribute('aria-expanded', String(on));
+    if (on) { const f = el.querySelector('.x'); if (f) f.focus({ preventScroll: true }); if (el === this.feed) $('feed').scrollTop = 0; }
+    else if (el.contains(document.activeElement)) btn.focus({ preventScroll: true });
+  },
+  toggle(el) { this.open(el, !this.isOpen(el)); },
+};
+UIX.badge.addEventListener('click', () => UIX.toggle(UIX.board));
+UIX.ticker.addEventListener('click', () => UIX.toggle(UIX.feed));
+$('boardClose').addEventListener('click', () => UIX.open(UIX.board, false));
+$('feedClose').addEventListener('click', () => UIX.open(UIX.feed, false));
+// a press outside an open sheet closes it (and never turns into a pass marker on the court)
+window.addEventListener('pointerdown', e => {
+  const open = [UIX.board, UIX.feed].filter(s => UIX.isOpen(s)); if (!open.length) return;
+  if (open.some(s => s.contains(e.target)) || UIX.badge.contains(e.target) || UIX.ticker.contains(e.target)) return;
+  open.forEach(s => UIX.open(s, false));
+  if (e.target === canvas) { UIX.swallow = true; e.stopPropagation(); }
+}, true);
+window.addEventListener('pointerup', e => { if (UIX.swallow) { UIX.swallow = false; e.stopPropagation(); } }, true);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { if (UIX.isOpen(UIX.feed)) UIX.open(UIX.feed, false); else if (UIX.isOpen(UIX.board)) UIX.open(UIX.board, false); return; }
+  if ((e.key === 'm' || e.key === 'M') && !e.ctrlKey && !e.metaKey && !e.altKey && !/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement && document.activeElement.tagName)) { e.preventDefault(); UIX.toggle(UIX.board); }
+});
+// ticker: newest line fades in, the previous one stays dimmed above it
+function tickerPush(min, text, cls) {
+  const box = $('tkLines'); if (!box) return;
+  box.querySelectorAll('.tk-idle').forEach(n => n.remove());
+  const lines = box.querySelectorAll('.tk-line');
+  for (let i = 0; i < lines.length - 1; i++) lines[i].remove();
+  const old = box.querySelector('.tk-line'); if (old) { old.classList.remove('in', 'goal'); old.classList.add('prev'); }
+  const d = document.createElement('span'); d.className = 'tk-line in' + (cls === 'goal' ? ' goal' : '');
+  const b = document.createElement('b'); b.textContent = min; d.append(b, document.createTextNode(text)); box.append(d);
+}
 
 // --- boot
 applySurface(STATE.surface); applyTOD(STATE.tod);
 buildNav(); initChars();
 resize(); updateCutaway();
 new ResizeObserver(() => resize()).observe(stage);
+addEventListener('resize', () => resize()); matchMedia(`(resolution: ${devicePixelRatio}dppx)`).addEventListener?.('change', () => resize());
 newMatch(+(Q.get('home') ?? 0), +(Q.get('away') ?? 1));
 requestAnimationFrame(frame);
 </script>
