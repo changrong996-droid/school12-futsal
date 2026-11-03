@@ -86,35 +86,35 @@ body.feedoff .ticker .tk-line{display:none}
 .sheet .x{width:40px;height:40px;border:2px solid rgba(243,239,226,.5);border-radius:0;background:transparent;color:var(--chalk);font:700 16px/1 var(--mono);cursor:pointer}
 .sheet .x:hover{background:rgba(243,239,226,.12)}
 /* tactics board: anchored bottom-left above the badge, off the centre of the court */
-.board{left:calc(14px + var(--sal));bottom:calc(94px + var(--sab));width:min(540px,calc(100vw - 28px));max-height:calc(100dvh - 160px)}
-.bgrid{flex:1 1 auto;min-height:0;overflow:auto;display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;padding:12px 16px 4px;scrollbar-width:thin;scrollbar-color:rgba(243,239,226,.4) transparent}
+.board{left:calc(14px + var(--sal));bottom:calc(94px + var(--sab));width:min(540px,calc(100vw - 28px));max-height:calc(100dvh - 108px - var(--sab) - var(--sat))}
+.bgrid{flex:1 1 auto;min-height:0;overflow:auto;display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;padding:8px 16px 8px;scrollbar-width:thin;scrollbar-color:rgba(243,239,226,.4) transparent}
 .ctl{margin:0;min-width:0}
 .ctl.wide{grid-column:1/-1}
-.lab{display:block;font:700 12px/1.2 var(--cjk);letter-spacing:.1em;color:var(--chalk2);margin:0 0 6px}
+.lab{display:block;font:700 12px/1.2 var(--cjk);letter-spacing:.1em;color:var(--chalk2);margin:0 0 5px}
 .lab em{font-style:normal;font-weight:500;letter-spacing:0;color:rgba(243,239,226,.6);margin-left:6px}
 .seg{display:flex;border:2px solid rgba(243,239,226,.75);overflow:hidden;min-width:0}
-.seg button{flex:1 1 0;min-width:0;min-height:38px;border:0;border-right:2px dashed rgba(243,239,226,.35);background:none;font:inherit;font-size:13px;cursor:pointer;padding:0 3px;color:var(--chalk);white-space:nowrap}
+.seg button{flex:1 1 0;min-width:0;min-height:36px;border:0;border-right:2px dashed rgba(243,239,226,.35);background:none;font:inherit;font-size:13px;cursor:pointer;padding:0 3px;color:var(--chalk);white-space:nowrap}
 .seg button:last-child{border-right:0}
 .seg button:hover{background:rgba(243,239,226,.1)}
 .seg button[aria-pressed=true]{background:var(--chalk);color:var(--board);font-weight:700}
 .row2{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .row2>*{flex:1 1 0;min-width:0}
-.btn{min-height:38px;padding:0 8px;border:2px solid rgba(243,239,226,.75);border-radius:0;background:transparent;color:var(--chalk);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+.btn{min-height:36px;padding:0 8px;border:2px solid rgba(243,239,226,.75);border-radius:0;background:transparent;color:var(--chalk);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
 .btn:hover{background:rgba(243,239,226,.1)}
 .btn:active,.btn.flash,.btn[aria-pressed=true]{background:var(--chalk);color:var(--board);font-weight:700}
 #actShoot{border-color:var(--gold);color:var(--gold)}
 #actShoot:active{background:var(--gold);color:var(--ink)}
-select{min-height:38px;width:100%;border:2px solid rgba(243,239,226,.75);border-radius:0;background:rgba(26,20,35,.25);color:var(--chalk);font:inherit;font-size:13px;padding:0 6px}
+select{min-height:36px;width:100%;border:2px solid rgba(243,239,226,.75);border-radius:0;background:rgba(26,20,35,.25);color:var(--chalk);font:inherit;font-size:13px;padding:0 6px}
 select option{color:#1a1423;background:#fffdf8}
 #randomBtn{flex:0 0 auto}
 .vs{flex:0 0 auto!important;font:13px var(--cjk);color:var(--chalk2)}
-.sndrow input[type=range]{flex:1 1 0;min-width:0;height:38px;margin:0;accent-color:var(--gold)}
+.sndrow input[type=range]{flex:1 1 0;min-width:0;height:36px;margin:0;accent-color:var(--gold)}
 #soundBtn{flex:0 0 auto;min-width:104px}
-.ambrow{margin-top:6px}
+.ambrow{margin-top:4px}
 .amblab{flex:0 0 auto!important;min-width:104px;font-size:13px;color:var(--chalk)}
 .ambval{flex:0 0 auto!important;min-width:34px;text-align:right;font:700 12px/1 var(--mono);color:var(--gold)}
-.hint{font-size:12px;line-height:1.45;color:rgba(243,239,226,.7);margin:5px 0 0}
-.credit{grid-column:1/-1;margin:0 0 10px;padding-top:8px;border-top:2px dashed rgba(243,239,226,.2);font-size:11px;line-height:1.5;color:rgba(243,239,226,.62)}
+.hint{font-size:12px;line-height:1.45;color:rgba(243,239,226,.7);margin:4px 0 0}
+.credit{grid-column:1/-1;margin:0 0 2px;padding-top:7px;border-top:2px dashed rgba(243,239,226,.2);font-size:11px;line-height:1.5;color:rgba(243,239,226,.62)}
 .credit .keys{display:block;color:rgba(243,239,226,.8);margin-top:2px}
 /* commentary history: bottom-right above the ticker */
 .feed{right:calc(14px + var(--sar));bottom:calc(94px + var(--sab));width:min(440px,calc(100vw - 28px));max-height:min(62dvh,560px);background-color:rgba(26,20,35,.9);background-image:none;box-shadow:0 0 0 2px #fffdf8,8px 8px 0 4px rgba(26,20,35,.3);color:#fffdf8}
@@ -244,6 +244,7 @@ select option{color:#1a1423;background:#fffdf8}
       <div class="ctl"><span class="lab">时段</span><div class="seg" id="todSeg"><button data-v="day">白天</button><button data-v="dusk">黄昏</button><button data-v="night">夜晚</button></div></div>
       <div class="ctl"><span class="lab">镜头</span><div class="seg" id="camSeg"><button data-v="tv">转播跟随</button><button data-v="full">全场</button><button data-v="close">特写</button></div></div>
       <div class="ctl"><span class="lab">比赛时长（现实时间）</span><div class="seg" id="lenSeg"><button data-v="4">4 分钟</button><button data-v="8">8 分钟</button><button data-v="12">12 分钟</button><button data-v="20">20 分钟</button></div></div>
+      <div class="ctl wide"><span class="lab">画质 <em id="qNow">自动</em></span><div class="seg" id="qSeg"><button data-v="auto">自动</button><button data-v="low">经典</button><button data-v="mid">标准</button><button data-v="high">精细</button></div></div>
       <div class="ctl wide"><span class="lab">观众互动 <em>也可以点击球场，标记下一脚传球的落点</em></span>
         <div class="row2"><button class="btn" id="actShoot">射门！</button><button class="btn" id="actSquare">横传</button><button class="btn" id="actLong">长传</button></div>
       </div>
@@ -253,9 +254,9 @@ select option{color:#1a1423;background:#fffdf8}
       <div class="ctl wide"><span class="lab">声音</span>
         <div class="row2 sndrow"><button class="btn" id="soundBtn" aria-pressed="false">开启声音</button><input type="range" id="volSlider" min="0" max="100" value="70" aria-label="音量"></div>
         <div class="row2 sndrow ambrow"><label class="amblab" for="ambSlider">看台氛围</label><input type="range" id="ambSlider" min="0" max="100" value="35" aria-label="看台氛围音量（0 为关闭）"><span class="ambval" id="ambVal">35</span></div>
-        <p class="hint" id="soundHint">默认静音。点“开启声音”后可听到哨声、球声和看台观众。</p>
+        <p class="hint" id="soundHint">默认静音。开启后可听到哨声、球声和看台观众。</p>
       </div>
-    <p class="credit wide">一座漂浮的校园操场：四支原创球队在你选定的场地上，踢一场完整的五人制足球赛。所有人物、球队与美术均为原创。声音为程序实时合成；裁判哨声、进球欢呼与叹息来自 Freesound 的 CC0（公共领域）录音，详见 README。<span class="keys">快捷键：M 打开/收起战术板 · Esc 关闭</span></p>
+    <p class="credit wide">漂浮校园操场上的五人制足球赛；人物、球队与美术均为原创。声音为实时合成，哨声、进球欢呼与叹息来自 Freesound 的 CC0 录音（见 README）。<span class="keys">快捷键：M 打开/收起战术板 · Esc 关闭</span></p>
     </div>
   </aside>
 
@@ -286,6 +287,154 @@ const STATE = { len: +(Q.get('len') || 8), surface: 'rubber', tod: 'day', cam: I
 if (Q.get('surface')) STATE.surface = Q.get('surface');
 if (Q.get('tod')) STATE.tod = Q.get('tod');
 if (Q.get('cam')) STATE.cam = Q.get('cam');
+
+/* =====================================================================
+   画质档位 QUALITY TIERS  (2026-11-03)
+   A tier is defined by how many screen (CSS) pixels one art pixel covers — always an integer number of
+   device pixels, so the grid stays crisp. Art assets are authored in pixels-per-metre per tier; the art
+   baseline is 标准 (mid, ~480 art px across a 1440-wide screen). Phones are sized by width instead.
+   ===================================================================== */
+const TIERS = {
+  // px: CSS px per art px · phoneW: art px across a phone · court/grass/brick: texels per metre · band: goal-post stripe (m)
+  // mb: court mip LOD bias (finer lines on finer tiers) · shadow: shadow-map size · ow: silhouette outline px
+  low:  { name: '经典', px: 4, phoneW: 240, court: 16, grass: 8,  brick: 8,  band: 0.33, mb: -0.25, shadow: 1024, ow: 1 },
+  mid:  { name: '标准', px: 3, phoneW: 320, court: 24, grass: 12, brick: 12, band: 0.25, mb: -0.25, shadow: 1536, ow: 1 },
+  high: { name: '精细', px: 2, phoneW: 427, court: 32, grass: 16, brick: 16, band: 0.2,  mb: -0.5,  shadow: 2048, ow: 2 },
+};
+const TIER_KEYS = ['low', 'mid', 'high'];
+const Q_MODES = ['auto', 'low', 'mid', 'high'];
+const QUAL = {
+  mode: 'auto', tier: 'mid', cap: IS_PHONE ? 'mid' : 'high', start: 'mid',
+  rebake: [],                     // asset bakers re-run on every tier change: fn(tier)
+  log: [],                        // tier changes [{t, from, to, why}]
+  win: [], since: 0, upBlock: 0, synthetic: false,
+  get T() { return TIERS[this.tier]; },
+  // integer device pixels per art pixel for this window
+  scale(wd, dpr) {
+    const T = this.T;
+    let s = IS_PHONE ? Math.max(1, Math.round(wd / T.phoneW)) : Math.max(1, Math.round(T.px * dpr));
+    while (wd / s > 1100) s++;    // huge screens: never more than ~1100 art px across
+    return s;
+  },
+  register(fn) { this.rebake.push(fn); fn(this.T); },
+  setTier(t, why) {
+    if (!TIERS[t] || t === this.tier) return;
+    this.log.push({ t: Math.round(performance.now()), from: this.tier, to: t, why });
+    this.tier = t;
+    for (const fn of this.rebake) fn(this.T);
+    if (typeof resize === 'function') resize(true);
+    this.resetWin();
+    this.ui();
+  },
+  setMode(m, save) {
+    if (!Q_MODES.includes(m)) m = 'auto';
+    this.mode = m;
+    if (save) { try { localStorage.setItem('s12q', m); } catch (e) { } }
+    if (m === 'auto') { this.upBlock = 0; this.resetWin(); this.ui(); }
+    else { this.setTier(m, 'manual'); this.ui(); }
+  },
+  resetWin() { this.win.length = 0; this.since = 0; },
+  // one sample per rendered frame. interval = rAF-to-rAF ms; work = ms spent inside frame() (sim + render submit).
+  // On a 60 Hz screen the interval is pinned at ~16.7 ms, so a frame that made vsync is costed by its own work.
+  sample(interval, work, now, synthetic = false) {
+    if (synthetic !== this.synthetic) return;
+    if (this.mode !== 'auto') return;
+    if (document.hidden || interval > 1500 || interval <= 0) { this.resetWin(); return; }   // tab switch / long stall: start over
+    const cost = interval >= 18 ? interval : Math.min(interval, work);
+    if (!this.since) this.since = now;
+    const W = this.win; W.push(now, cost);
+    while (W.length && W[0] < now - 10000) W.splice(0, 2);
+    const el = now - this.since, i = TIER_KEYS.indexOf(this.tier);
+    // down: within the last 3 s at least 10% of frames took > 20 ms
+    if (el >= 3000 && this.tier !== 'low') {
+      let n = 0, slow = 0;
+      for (let k = W.length - 2; k >= 0 && W[k] >= now - 3000; k -= 2) { n++; if (W[k + 1] > 20) slow++; }
+      if (n >= 3 && slow / n >= 0.1) { this.upBlock = now + 60000; this.setTier(TIER_KEYS[i - 1], 'slow'); return; }
+    }
+    // up: 10 s in a row with 90% of frames under 11 ms; at most one step up per minute
+    if (el >= 10000 && this.tier !== this.cap && now >= this.upBlock) {
+      let n = 0, fast = 0;
+      for (let k = 0; k < W.length; k += 2) { n++; if (W[k + 1] < 11) fast++; }
+      if (n >= 60 && fast / n >= 0.9) { this.upBlock = now + 60000; this.setTier(TIER_KEYS[i + 1], 'fast'); }
+    }
+  },
+  ui() {
+    const el = document.getElementById('qNow'); if (!el) return;
+    const res = typeof RW !== 'undefined' ? ` · ${RW}×${RH}` : '';
+    el.textContent = (this.mode === 'auto' ? `自动：当前${this.T.name}` : this.T.name) + res;
+    if (typeof QSEG_SET === 'function') QSEG_SET(this.mode);
+  },
+};
+{
+  let m = Q.get('q'), fromUrl = Q_MODES.includes(m);
+  if (!fromUrl) { try { m = localStorage.getItem('s12q'); } catch (e) { m = null; } }
+  QUAL.mode = Q_MODES.includes(m) ? m : 'auto';
+  QUAL.tier = QUAL.mode === 'auto' ? QUAL.start : QUAL.mode;
+}
+let QSEG_SET = null;
+
+// Palette-exact mip chain for a canvas texture: every texel of a smaller level is one of the 2x2 texels above it
+// (the most common one; ties go to `prefer`, and any `keep` colour wins outright so thin court lines never vanish).
+// No blended colours ever reach the palette pass, so there is no fringe of off-colour dots at a distance.
+function pixMips(tex, keep = [], prefer = []) {
+  const cv = tex.image, g = cv.getContext('2d');
+  let w = cv.width, h = cv.height;
+  const id0 = g.getImageData(0, 0, w, h);
+  let src = new Uint32Array(id0.data.buffer.slice(0));
+  const u32 = hex => { const n = parseInt(hex.slice(1), 16); return (0xff000000 | ((n & 255) << 16) | (n & 0xff00) | (n >> 16)) >>> 0; };
+  const K = keep.map(u32), PR = prefer.map(u32);
+  const rank = c => { const i = PR.indexOf(c); return i < 0 ? 99 : i; };
+  const mips = [id0];
+  const q = new Uint32Array(4);
+  while (w > 1 || h > 1) {
+    const nw = Math.max(1, w >> 1), nh = Math.max(1, h >> 1), dst = new Uint32Array(nw * nh);
+    for (let y = 0; y < nh; y++) {
+      const y0 = Math.min(h - 1, y * 2) * w, y1 = Math.min(h - 1, y * 2 + 1) * w;
+      for (let x = 0; x < nw; x++) {
+        const x0 = Math.min(w - 1, x * 2), x1 = Math.min(w - 1, x * 2 + 1);
+        q[0] = src[y0 + x0]; q[1] = src[y0 + x1]; q[2] = src[y1 + x0]; q[3] = src[y1 + x1];
+        let best = q[0], bn = -1, br = 99, hit = false;
+        if (K.length) for (const kc of K) { if (q[0] === kc || q[1] === kc || q[2] === kc || q[3] === kc) { best = kc; hit = true; break; } }
+        if (!hit) for (let a = 0; a < 4; a++) {
+          const c = q[a]; let n = 0; for (let b = 0; b < 4; b++) if (q[b] === c) n++;
+          const r = rank(c); if (n > bn || (n === bn && r < br)) { bn = n; br = r; best = c; }
+        }
+        dst[y * nw + x] = best;
+      }
+    }
+    mips.push(new ImageData(new Uint8ClampedArray(dst.buffer), nw, nh));
+    src = dst; w = nw; h = nh;
+  }
+  tex.mipmaps = mips; tex.generateMipmaps = false;
+  tex.minFilter = THREE.NearestMipmapNearestFilter; tex.magFilter = THREE.NearestFilter; tex.anisotropy = 1;
+  tex.needsUpdate = true;
+  return tex;
+}
+// sample a material's colour map with a mip LOD bias (finer level than the GPU's max-derivative choice; the
+// ground is foreshortened by sin 31° so the default pick is one level too coarse across the screen)
+function mapBias(m, bias) {
+  m.onBeforeCompile = sh => {
+    sh.uniforms.uMapBias = bias;
+    sh.fragmentShader = 'uniform float uMapBias;\n' + sh.fragmentShader.replace('#include <map_fragment>',
+      '#ifdef USE_MAP\n  vec4 sampledDiffuseColor = texture2D( map, vMapUv, uMapBias );\n  diffuseColor *= sampledDiffuseColor;\n#endif');
+  };
+  m.customProgramCacheKey = () => 'mapBias';
+  return m;
+}
+// box with UVs in metres (u along the face's horizontal axis, v up) so a tiling texture keeps one density on every face
+function metreBox(w, h, d, tile) {
+  const g = new THREE.BoxGeometry(w, h, d), p = g.attributes.position, uv = g.attributes.uv;
+  for (let f = 0; f < 6; f++) for (let k = 0; k < 4; k++) {
+    const i = f * 4 + k, x = p.getX(i) + w / 2, y = p.getY(i) + h / 2, z = p.getZ(i) + d / 2;
+    const [u, v] = f < 2 ? [z, y] : f < 4 ? [x, z] : [x, y];
+    uv.setXY(i, u / tile, v / tile);
+  }
+  return g;
+}
+// draw a rect into a tiling canvas, wrapping across the edges
+function wrapRect(g, x, y, w, h, W, H) {
+  for (const ox of [0, -W]) for (const oy of [0, -H]) if (x + ox < W && x + ox + w > 0 && y + oy < H && y + oy + h > 0) g.fillRect(x + ox, y + oy, w, h);
+}
 
 // seeded RNG (stable scenery)
 function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
@@ -336,7 +485,7 @@ let RT = null, RW = CFG.rtW, RH = 200;
 const postMat = new THREE.ShaderMaterial({
   uniforms: {
     tColor: { value: null }, tDepth: { value: null }, res: { value: new THREE.Vector2(1, 1) },
-    cNear: { value: 1 }, cFar: { value: 260 }, thr: { value: 1 },
+    cNear: { value: 1 }, cFar: { value: 260 }, thr: { value: 1 }, thr2: { value: 2 }, ow: { value: QUAL.T.ow }, skyAmp: { value: 0.12 },
     pal: { value: PAL_HEX.map(h => new THREE.Color(h)) }, ink: { value: new THREE.Color(PAL_HEX[0]) },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }`,
@@ -344,7 +493,7 @@ const postMat = new THREE.ShaderMaterial({
     precision highp float;
     varying vec2 vUv;
     uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 res;
-    uniform float cNear; uniform float cFar; uniform float thr;
+    uniform float cNear; uniform float cFar; uniform float thr; uniform float thr2; uniform float ow; uniform float skyAmp;
     uniform vec3 pal[32]; uniform vec3 ink;
     // orthographic depth buffer is linear in view z: linearise to metres
     float lin(vec2 uv){ float d = texture2D(tDepth, uv).x; return cNear + d * (cFar - cNear); }
@@ -359,15 +508,24 @@ const postMat = new THREE.ShaderMaterial({
       float d3 = c - lin(vUv + vec2(0., px.y));
       float d4 = c - lin(vUv - vec2(0., px.y));
       float edge = max(max(d1, d2), max(d3, d4));
+      // fine tier: depth steps much bigger than a crease (a body against the ground, the island against the sky)
+      // also ink the second pixel out, so silhouettes keep the chunky 2 px line of the classic tier
+      float edge2 = 0.;
+      if (ow > 1.5) {
+        vec2 p2 = px * 2.0;
+        edge2 = max(max(c - lin(vUv + vec2(p2.x, 0.)), c - lin(vUv - vec2(p2.x, 0.))), max(c - lin(vUv + vec2(0., p2.y)), c - lin(vUv - vec2(0., p2.y))));
+      }
       vec3 col = texture2D(tColor, vUv).rgb;
-      col += bayer(gl_FragCoord.xy) * 0.016;
+      // the sky (empty depth) gets a full-strength ordered dither between neighbouring palette colours: no bands
+      bool skyPx = texture2D(tDepth, vUv).x > 0.99999;
+      col += bayer(gl_FragCoord.xy) * (skyPx ? skyAmp : 0.016);
       vec3 best = pal[0]; float bd = 1e9;
       for (int i = 0; i < 32; i++) {
         vec3 d = col - pal[i];
         float dd = dot(d * d, vec3(2.0, 4.0, 3.0));
         if (dd < bd) { bd = dd; best = pal[i]; }
       }
-      if (edge > thr) best = ink;
+      if (edge > thr || edge2 > thr2) best = ink;
       gl_FragColor = vec4(best, 1.0);
     }`,
   depthTest: false, depthWrite: false,
@@ -386,19 +544,21 @@ function makeRT() {
   postMat.uniforms.res.value.set(RW, RH);
 }
 let PXS = 1;   // device pixels per art pixel (integer)
-function resize() {
+function resize(force) {
   const w = stage.clientWidth || innerWidth || 640, h = stage.clientHeight || innerHeight || 400, dpr = window.devicePixelRatio || 1;
   const wd = Math.round(w * dpr), hd = Math.round(h * dpr);
-  const s = Math.max(1, Math.round(wd / CFG.rtW));
+  const s = QUAL.scale(wd, dpr);
   const nw = Math.ceil(wd / s), nh = Math.max(60, Math.ceil(hd / s));
   PXS = s;
   canvas.style.width = (nw * s / dpr) + 'px'; canvas.style.height = (nh * s / dpr) + 'px';
   canvas.style.left = (Math.floor((wd - nw * s) / 2) / dpr) + 'px'; canvas.style.top = (Math.floor((hd - nh * s) / 2) / dpr) + 'px';
-  if (nw === RW && nh === RH && RT) return;
+  if (nw === RW && nh === RH && RT && force !== true) return;
   RW = nw; RH = nh;
+  postMat.uniforms.ow.value = QUAL.T.ow;
   renderer.setSize(RW, RH, false);
   makeRT();
   updateCameraFrustum();
+  QUAL.ui();
 }
 function updateCameraFrustum() {
   const aspect = RW / RH;
@@ -409,6 +569,7 @@ function updateCameraFrustum() {
   // outline threshold scales with metres-per-pixel (ground depth slope ~ 1/tan(elev) per pixel)
   const mpp = (2 * halfH) / RH;
   postMat.uniforms.thr.value = mpp / Math.tan(CFG.elev) * 2.2 + 0.25;
+  postMat.uniforms.thr2.value = postMat.uniforms.thr.value * 2 + 0.9;
 }
 function renderFrame() {
   renderer.setRenderTarget(RT);
@@ -483,7 +644,8 @@ function cjkText(g, str, cx, y, px, color, weight = 700) {
 const hemi = new THREE.HemisphereLight(0xffffff, 0x445533, 1.2); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffffff, 2); sun.position.set(30, 55, 22); scene.add(sun, sun.target);
 if (CFG.shadows) {
-  sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024);
+  sun.castShadow = true;
+  QUAL.register(T => { if (sun.shadow.mapSize.x === T.shadow) return; sun.shadow.mapSize.set(T.shadow, T.shadow); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } });
   const sc = sun.shadow.camera; sc.left = -48; sc.right = 48; sc.top = 40; sc.bottom = -40; sc.near = 5; sc.far = 160;
   sun.shadow.bias = -0.0015; sun.shadow.normalBias = 0.08;
 }
@@ -501,13 +663,30 @@ function islandEdge(t, s = 1) {
   for (let i = 0; i < NS; i++) { const [x, z] = islandEdge(i / NS * Math.PI * 2); i ? shape.lineTo(x, -z) : shape.moveTo(x, -z); }
   const geo = new THREE.ShapeGeometry(shape, 1); geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position, uv = geo.attributes.uv;
-  for (let i = 0; i < pos.count; i++) uv.setXY(i, (pos.getX(i) + ISL.a) / (2 * ISL.a), (pos.getZ(i) + ISL.b) / (2 * ISL.b));
+  const GTILE = 8;   // metres per grass tile
+  for (let i = 0; i < pos.count; i++) uv.setXY(i, pos.getX(i) / GTILE, pos.getZ(i) / GTILE);
   const r = mulberry(7);
-  const grassTex = canvasTex(120, 80, (g, w, h) => {
-    g.fillStyle = HEX('grass'); g.fillRect(0, 0, w, h);
-    for (let i = 0; i < 260; i++) { g.fillStyle = r() < 0.55 ? HEX('grassD') : HEX('grassL'); const s = 1 + Math.floor(r() * 3); g.fillRect(Math.floor(r() * w), Math.floor(r() * h), s, 1 + Math.floor(r() * 2)); }
+  const grassMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  QUAL.register(T => {
+    const gr = mulberry(77), N = GTILE * T.grass, a = Math.max(1, Math.round(T.grass / 8));
+    const tex = canvasTex(N, N, (g, w, h) => {
+      g.fillStyle = HEX('grass'); g.fillRect(0, 0, w, h);
+      // light patches a metre or two across, then tufts (2-3 blades) at a fixed density per square metre
+      for (let i = 0; i < 5; i++) { const cx = gr() * w, cy = gr() * h, rad = (0.6 + gr() * 0.8) * T.grass; g.fillStyle = HEX('grassL');
+        for (let j = 0; j < 26; j++) { const ang = gr() * 6.283, d = Math.sqrt(gr()) * rad; wrapRect(g, Math.floor(cx + Math.cos(ang) * d), Math.floor(cy + Math.sin(ang) * d * 0.8), a, a, w, h); } }
+      const tufts = Math.round(GTILE * GTILE * 5);
+      for (let i = 0; i < tufts; i++) {
+        const x = Math.floor(gr() * w), y = Math.floor(gr() * h), dark = gr() < 0.6;
+        g.fillStyle = HEX(dark ? 'grassD' : 'grassL');
+        wrapRect(g, x, y, a, 2 * a, w, h);
+        if (gr() < 0.7) wrapRect(g, x + 2 * a, y + a, a, a + (gr() < 0.5 ? a : 0), w, h);
+        if (dark && gr() < 0.35) wrapRect(g, x - a, y + a, a, a, w, h);
+      }
+    });
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    if (grassMat.map) grassMat.map.dispose(); grassMat.map = tex; grassMat.needsUpdate = true;
   });
-  const top = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: grassTex })); top.receiveShadow = CFG.shadows; scene.add(top);
+  const top = new THREE.Mesh(geo, grassMat); top.receiveShadow = CFG.shadows; scene.add(top);
 
   // tapered rocky underside, flat-shaded with per-face colours
   const rings = [];
@@ -539,7 +718,9 @@ function islandEdge(t, s = 1) {
 }
 
 // ---- court plane (texture comes from SURFACES)
-const courtMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+const MB_URL = Q.get('mb') != null && Q.get('mb') !== '' ? +Q.get('mb') : null;   // ?mb= test override of the tier's court LOD bias
+const COURT_BIAS = { value: 0 }; QUAL.register(T => { COURT_BIAS.value = MB_URL ?? T.mb; });
+const courtMat = mapBias(new THREE.MeshLambertMaterial({ color: 0xffffff }), COURT_BIAS);
 {
   const g = new THREE.PlaneGeometry(CFG.FX * 2, CFG.FZ * 2); g.rotateX(-Math.PI / 2);
   const m = new THREE.Mesh(g, courtMat); m.position.y = 0.02; m.receiveShadow = CFG.shadows; scene.add(m);
@@ -556,12 +737,26 @@ const windowMat = new THREE.MeshLambertMaterial({ color: HEX('navy'), emissive: 
 const lampMat = new THREE.MeshLambertMaterial({ color: HEX('lgrey'), emissive: 0x000000 });
 let scoreboardTex, clockHands = {}, flagGeo, flagBase;
 {
-  bx(6, 7, 27, 'brick', SX - 3, 0, 0, school);
+  const brickMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  QUAL.register(T => {
+    // brick + 1 px mortar; bricks a little over-sized like pixel art, courses offset by half a brick
+    const L = { 8: 8, 12: 10, 16: 12 }[T.brick] || 10, C = { 8: 3, 12: 4, 16: 4 }[T.brick] || 4, w = L * 2, h = C * 4;
+    const tex = canvasTex(w, h, g => {
+      g.fillStyle = HEX('brick'); g.fillRect(0, 0, w, h);
+      g.fillStyle = HEX('tan');
+      for (let k = 0; k < 4; k++) { g.fillRect(0, k * C + C - 1, w, 1); const o = k % 2 ? L / 2 : 0; for (const x of [o, o + L]) g.fillRect(x % w, k * C, 1, C - 1); }
+    });
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(T.brick / w, T.brick / h);
+    pixMips(tex, [], [HEX('brick')]);
+    if (brickMat.map) brickMat.map.dispose(); brickMat.map = tex; brickMat.needsUpdate = true;
+  });
+  const brickBox = (w, h, d, x, y, z) => { const m = new THREE.Mesh(metreBox(w, h, d, 1), brickMat); m.position.set(x, y + h / 2, z); school.add(shade(m)); return m; };
+  brickBox(6, 7, 27, SX - 3, 0, 0);
   bx(6.12, 0.7, 27.12, 'dirtD', SX - 3, 0, 0, school);
   bx(6.12, 0.18, 27.12, 'lgrey', SX - 3, 3.55, 0, school);
   bx(6.6, 0.4, 27.6, 'lgrey', SX - 3, 7, 0, school);
   bx(6.2, 0.5, 27.2, 'slate', SX - 3, 7.3, 0, school);
-  bx(2.6, 1.8, 4, 'brick', SX - 4, 7.6, -9, school);
+  brickBox(2.6, 1.8, 4, SX - 4, 7.6, -9);
   bx(0.8, 1.2, 0.8, 'grey', SX - 2, 7.8, 5, school);
   block(SX - 6.4, -13.8, SX + 0.1, 13.8);
   const wins = [[2.0, [-12.2, -10, -7.8, -5.6, -3.6, 3.6, 5.6, 7.8, 10, 12.2]], [5.0, [-12.6, -3.6, 3.6, 5.6, 10.6, 12.4]]];
@@ -647,16 +842,17 @@ let scoreboardTex, clockHands = {}, flagGeo, flagBase;
 // ---- goals (3 x 2 m, red/white striped posts, nets)
 const GOALS = [];
 {
-  const stripe = canvasTex(2, 8, (g) => { for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? HEX('white') : HEX('crimson'); g.fillRect(0, i, 2, 1); } });
-  stripe.wrapS = stripe.wrapT = THREE.RepeatWrapping;
-  const postMatV = new THREE.MeshLambertMaterial({ map: stripe });
-  const barTex = stripe.clone(); barTex.needsUpdate = true; barTex.repeat.set(1, 1.5);
-  const barMat = new THREE.MeshLambertMaterial({ map: barTex });
+  const postMatV = new THREE.MeshLambertMaterial({ color: 0xffffff }), barMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  QUAL.register(T => {
+    const nb = Math.max(4, Math.round(2 / T.band / 2) * 2), nbar = Math.round(3.16 / T.band) | 1;
+    const band = (n, vert) => canvasTex(vert ? 1 : n, vert ? n : 1, g => { for (let i = 0; i < n; i++) { g.fillStyle = i % 2 ? HEX('white') : HEX('crimson'); vert ? g.fillRect(0, i, 1, 1) : g.fillRect(i, 0, 1, 1); } });
+    for (const [m, t] of [[postMatV, band(nb, true)], [barMat, band(nbar, false)]]) { if (m.map) m.map.dispose(); m.map = t; m.needsUpdate = true; }
+  });
   const netMat = new THREE.MeshBasicMaterial({ color: HEX('white'), transparent: true, opacity: 0.38, depthWrite: false, side: THREE.DoubleSide });
   for (const s of [-1, 1]) {
     const g = new THREE.Group(); g.position.set(s * 20, 0, 0); scene.add(g);
     for (const z of [-1.5, 1.5]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.16, 2, 0.16), postMatV); p.position.set(s * 0.08, 1, z); g.add(shade(p)); }
-    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 3.16), barMat); bar.position.set(s * 0.08, 2, 0); g.add(shade(bar));
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(3.16, 0.16, 0.16), barMat); bar.rotation.y = Math.PI / 2; bar.position.set(s * 0.08, 2, 0); g.add(shade(bar));
     const net = new THREE.Group(); g.add(net);
     const back = new THREE.Mesh(new THREE.PlaneGeometry(3, 1.2), netMat); back.rotation.y = Math.PI / 2; back.position.set(s * 1.0, 0.6, 0); net.add(back);
     const topN = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 3), netMat); topN.rotation.x = -Math.PI / 2; topN.position.set(s * 0.5, 1.6, 0); topN.rotation.y = s * 0.0; net.add(topN);
@@ -848,31 +1044,41 @@ const SURF = {
   parquet: { name: '木地板',          base: 'tan',   run: 'dirt',  e: 0.55, crr: 0.030, mus: 0.22, skid: 0.35, accel: 6 },
 };
 let surf = SURF.rubber;
-const COURT_PPM = 16;
 let courtTex = null;
+// baked per tier at QUAL.T.court texels per metre (16 / 24 / 32). Grain keeps one density per square metre;
+// markings are drawn into a separate mask and hard-thresholded (no anti-aliased edge colours), then the mip chain
+// is built palette-exact with the white lines always kept (pixMips), so distant lines never fringe or vanish.
 function drawCourt(key) {
-  const S = SURF[key], W = CFG.FX * 2 * COURT_PPM, H = CFG.FZ * 2 * COURT_PPM;
+  const S = SURF[key], PPM = QUAL.T.court, k = PPM / 16, W = CFG.FX * 2 * PPM, H = CFG.FZ * 2 * PPM;
   const r = mulberry(5);
-  const X = x => (x + CFG.FX) * COURT_PPM, Y = z => (z + CFG.FZ) * COURT_PPM;
+  const Xf = x => (x + CFG.FX) * PPM, Yf = z => (z + CFG.FZ) * PPM;
+  const X = x => Math.round(Xf(x)), Y = z => Math.round(Yf(z));
+  const ds = Math.max(1, Math.round(k));                       // grain dot ~6 cm
+  const nDots = n => Math.round(n * (k / ds) * (k / ds));      // same coverage per m2 on every tier
   const tex = canvasTex(W, H, (g) => {
     g.fillStyle = HEX(S.run); g.fillRect(0, 0, W, H);
-    g.fillStyle = HEX(S.base); g.fillRect(X(-20), Y(-10), 40 * COURT_PPM, 20 * COURT_PPM);
+    g.fillStyle = HEX(S.base); g.fillRect(X(-20), Y(-10), 40 * PPM, 20 * PPM);
     // surface grain
-    if (key === 'asphalt') { for (let i = 0; i < 2600; i++) { g.fillStyle = r() < 0.5 ? HEX('grey') : HEX('navy'); g.fillRect(r() * W | 0, r() * H | 0, 1, 1); } }
-    if (key === 'turf') { for (let i = 0; i < 10; i++) { g.fillStyle = HEX(i % 2 ? 'grass' : 'grassL'); g.globalAlpha = 0.35; g.fillRect(X(-20 + i * 4), Y(-10), 4 * COURT_PPM, 20 * COURT_PPM); } g.globalAlpha = 1; }
+    if (key === 'asphalt') { for (let i = 0, n = nDots(2600); i < n; i++) { g.fillStyle = r() < 0.5 ? HEX('grey') : HEX('navy'); g.fillRect(r() * W | 0, r() * H | 0, ds, ds); } }
+    if (key === 'turf') { for (let i = 0; i < 10; i++) { g.fillStyle = HEX(i % 2 ? 'grass' : 'grassL'); g.globalAlpha = 0.35; g.fillRect(X(-20 + i * 4), Y(-10), 4 * PPM, 20 * PPM); } g.globalAlpha = 1; }
     if (key === 'parquet') {
       for (let z = -CFG.FZ; z < CFG.FZ; z += 0.5) for (let x = -CFG.FX + ((z * 2) % 2 ? 0.9 : 0); x < CFG.FX; x += 1.8) {
-        g.fillStyle = HEX(pick(['tan', 'tan', 'dusk', 'skin'], r)); g.globalAlpha = 0.35; g.fillRect(X(x), Y(z), 1.8 * COURT_PPM - 1, 0.5 * COURT_PPM - 1);
+        g.fillStyle = HEX(pick(['tan', 'tan', 'dusk', 'skin'], r)); g.globalAlpha = 0.35; g.fillRect(X(x), Y(z), X(x + 1.8) - X(x) - 1, Y(z + 0.5) - Y(z) - 1);
       }
       g.globalAlpha = 1;
     }
-    if (key === 'rubber') { for (let i = 0; i < 900; i++) { g.fillStyle = HEX('blueL'); g.globalAlpha = 0.4; g.fillRect(r() * W | 0, r() * H | 0, 1, 1); } g.globalAlpha = 1; }
-    // markings (white)
-    g.strokeStyle = HEX('white'); g.fillStyle = HEX('white'); g.lineWidth = 4;
-    const line = (x0, z0, x1, z1) => { g.beginPath(); g.moveTo(X(x0), Y(z0)); g.lineTo(X(x1), Y(z1)); g.stroke(); };
-    const arc = (x, z, rad, a0, a1) => { g.beginPath(); g.arc(X(x), Y(z), rad * COURT_PPM, a0, a1); g.stroke(); };
-    const dot = (x, z, rad = 0.16) => { g.beginPath(); g.arc(X(x), Y(z), rad * COURT_PPM, 0, Math.PI * 2); g.fill(); };
-    g.strokeRect(X(-20), Y(-10), 40 * COURT_PPM, 20 * COURT_PPM);
+    if (key === 'rubber') { for (let i = 0, n = nDots(900); i < n; i++) { g.fillStyle = HEX('blueL'); g.globalAlpha = 0.4; g.fillRect(r() * W | 0, r() * H | 0, ds, ds); } g.globalAlpha = 1; }
+    // timekeeper zone hint
+    g.globalAlpha = 0.25; g.fillStyle = HEX('white'); g.fillRect(X(-1.2), Y(10.6), Math.round(2.4 * PPM), Math.round(1.4 * PPM)); g.globalAlpha = 1;
+    // markings (white) into a mask, then thresholded onto the surface
+    const mc = document.createElement('canvas'); mc.width = W; mc.height = H;
+    const m = mc.getContext('2d');
+    const LW = Math.max(2, Math.round(0.1 * PPM));              // ~8-12 cm lines
+    m.strokeStyle = '#fff'; m.fillStyle = '#fff'; m.lineWidth = LW;
+    const line = (x0, z0, x1, z1) => { m.beginPath(); m.moveTo(Xf(x0), Yf(z0)); m.lineTo(Xf(x1), Yf(z1)); m.stroke(); };
+    const arc = (x, z, rad, a0, a1) => { m.beginPath(); m.arc(Xf(x), Yf(z), rad * PPM, a0, a1); m.stroke(); };
+    const dot = (x, z, rad = 0.16) => { m.beginPath(); m.arc(Xf(x), Yf(z), rad * PPM, 0, Math.PI * 2); m.fill(); };
+    m.strokeRect(Xf(-20), Yf(-10), 40 * PPM, 20 * PPM);
     line(0, -10, 0, 10); arc(0, 0, 3, 0, Math.PI * 2); dot(0, 0);
     for (const s of [-1, 1]) {
       const gx = s * 20;
@@ -881,20 +1087,21 @@ function drawCourt(key) {
       else { arc(gx, 1.5, 6, Math.PI / 2, Math.PI); arc(gx, -1.5, 6, Math.PI, Math.PI * 1.5); }
       line(gx - s * 6, -1.5, gx - s * 6, 1.5);
       dot(gx - s * 6, 0); dot(gx - s * 10, 0);                 // 6 m and 10 m penalty marks
-      line(gx - s * 10, -0.4, gx - s * 10, -0.4); dot(gx - s * 10, -5, 0.1); dot(gx - s * 10, 5, 0.1);
+      dot(gx - s * 10, -5, 0.1); dot(gx - s * 10, 5, 0.1);
       // corner arcs r 0.25 (drawn slightly larger to survive the low resolution)
       for (const sz of [-1, 1]) arc(gx, sz * 10, 0.5, s < 0 ? (sz < 0 ? 0 : -Math.PI / 2) : (sz < 0 ? Math.PI / 2 : Math.PI), s < 0 ? (sz < 0 ? Math.PI / 2 : 0) : (sz < 0 ? Math.PI : Math.PI * 1.5));
       // 5 m marks from the corner on the goal line
       for (const sz of [-1, 1]) line(gx, sz * 5, gx + s * 0.4, sz * 5);
     }
     // substitution zones (bench side, +z): marks at 5 m and 10 m from halfway
-    g.lineWidth = 3;
+    m.lineWidth = Math.max(2, Math.round(LW * 0.75));
     for (const x of [-10, -5, 5, 10]) line(x, 9.6, x, 10.4);
-    // timekeeper zone hint
-    g.globalAlpha = 0.25; g.fillStyle = HEX('white'); g.fillRect(X(-1.2), Y(10.6), 2.4 * COURT_PPM, 1.4 * COURT_PPM); g.globalAlpha = 1;
+    const md = m.getImageData(0, 0, W, H).data, im = g.getImageData(0, 0, W, H), d = im.data;
+    const wn = parseInt(HEX('white').slice(1), 16), wr = wn >> 16, wg = (wn >> 8) & 255, wb = wn & 255;
+    for (let i = 3; i < md.length; i += 4) if (md[i] >= 128) { d[i - 3] = wr; d[i - 2] = wg; d[i - 1] = wb; d[i] = 255; }
+    g.putImageData(im, 0, 0);
   });
-  tex.minFilter = THREE.LinearMipmapLinearFilter; tex.generateMipmaps = true; tex.anisotropy = 4;
-  return tex;
+  return pixMips(tex, [HEX('white')], [HEX(S.base), HEX(S.run)]);
 }
 function applySurface(key) {
   if (!SURF[key]) key = 'rubber';
@@ -902,6 +1109,7 @@ function applySurface(key) {
   if (courtTex) courtTex.dispose();
   courtTex = drawCourt(key); courtMat.map = courtTex; courtMat.needsUpdate = true;
 }
+QUAL.rebake.push(() => { if (courtTex) applySurface(STATE.surface); });
 
 /* =====================================================================
    PHYSICS  (ball: quadratic drag, bounce, slide -> roll, solvers)
@@ -3142,6 +3350,7 @@ segInit('surfSeg', STATE.surface, v => {
 segInit('todSeg', STATE.tod, v => applyTOD(v));
 segInit('camSeg', STATE.cam, v => { STATE.cam = v; });
 segInit('speedSeg', STATE.speed, v => { STATE.speed = +v; });
+QSEG_SET = segInit('qSeg', QUAL.mode, v => QUAL.setMode(v, true)); QUAL.ui();
 homeSel.addEventListener('change', () => { if (homeSel.value === awaySel.value) awaySel.value = (+homeSel.value + 1) % CLUBS.length; newMatch(homeSel.value, awaySel.value); });
 awaySel.addEventListener('change', () => { if (homeSel.value === awaySel.value) homeSel.value = (+awaySel.value + 1) % CLUBS.length; newMatch(homeSel.value, awaySel.value); });
 $('randomBtn').addEventListener('click', () => { const a = Math.floor(rnd() * 4); let b = Math.floor(rnd() * 3); if (b >= a) b++; newMatch(a, b); });
@@ -3269,6 +3478,7 @@ let last = performance.now(), simAcc = 0, fps = 0, fpsN = 0, fpsT = 0;
 function frame(now) {
   requestAnimationFrame(frame);
   if (CAPTURE && frame.done) return;
+  const qIv = now - last, q0 = performance.now();
   const dt = Math.min(0.1, Math.max(0, (now - last) / 1000)); last = now;
   fpsN++; fpsT += dt; if (fpsT >= 1) { fps = Math.round(fpsN / fpsT); fpsN = 0; fpsT = 0; }
   if (!STATE.paused) {
@@ -3281,6 +3491,7 @@ function frame(now) {
   AUD.frame();
   visuals(dt);
   renderFrame();
+  QUAL.sample(qIv, performance.now() - q0, now);
   if (!frame.done && ++frame.n > 2) { frame.done = true; $('loading').classList.add('done'); }
 }
 frame.n = 0;
@@ -3336,7 +3547,14 @@ window.__game = {
   sound: { get log() { return AUD.log; }, get snaps() { return AUD.snaps; }, get on() { return AUD.on; }, get ready() { return !!(AUD.eng && AUD.eng.ready); }, get mode() { return AUD.mode; }, get amb() { return AUD.amb; }, get engAmb() { return AUD.eng ? AUD.eng.ambUser : null; }, render: (t0, t1, o) => AUD.render(t0, t1, o), stands: () => getStands() },
   // capture mode (?capture=1): advance the sim by hand, rendering one frame at the end (deterministic A/V for clips)
   advance(sec, render = true) { const n = Math.round(sec / CFG.FIXED); for (let i = 0; i < n; i++) { simStep(CFG.FIXED); if (i % 3 === 2 || i === n - 1) { updateCamera(CFG.FIXED * 3); AUD.snap(); } } if (render) { if (MATCH.t > bannerSimUntil) bannerEl.classList.remove('on'); visuals(sec); renderFrame(); } return MATCH.t; },
-  testSolvers, placeMarkerAt, setDebugSpeed(n) { DEBUG_SPEED = Math.max(1, Math.min(200, n)); }, debugView(x, y, z, zm) { CAM.dbg = [x, y, z, zm]; STATE.cam = 'debug'; }, courtToScreen(x, z) { const v = new V3(x, 0, z).project(camera); const r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; },
+  get q() { return QUAL.mode; }, get tier() { return QUAL.tier; }, get qlog() { return QUAL.log; },
+  setQ(m) { QUAL.setMode(m); return [QUAL.tier, RW, RH, PXS]; },
+  // feed the auto-tier controller synthetic frames: segs = [[interval ms, work ms, seconds], ...] -> tier after each segment
+  qualSim(segs) { const out = []; QUAL.synthetic = true; QUAL.resetWin(); QUAL.upBlock = 0; let t = performance.now() + 1e7; for (const [iv, wk, sec] of segs) { const end = t + sec * 1000; while (t < end) { t += iv; QUAL.sample(iv, wk, t, true); } out.push([sec, QUAL.tier]); } QUAL.synthetic = false; QUAL.resetWin(); return out; },
+  pause(v = true) { STATE.paused = v; },
+  renderBench(n = 30) { const gl = renderer.getContext(), px = new Uint8Array(4); renderFrame(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); const t = performance.now(); for (let i = 0; i < n; i++) { renderFrame(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); } return (performance.now() - t) / n; },
+  info() { renderer.info.autoReset = false; renderer.info.reset(); renderer.setRenderTarget(RT); renderer.render(scene, camera); renderer.setRenderTarget(null); const o = { calls: renderer.info.render.calls, tris: renderer.info.render.triangles, rt: [RW, RH], s: PXS, tier: QUAL.tier }; renderer.info.autoReset = true; return o; },
+  testSolvers, placeMarkerAt, setDebugSpeed(n) { DEBUG_SPEED = Math.max(1, Math.min(200, n)); }, debugView(x, y, z, zm) { CAM.dbg = [x, y, z, zm]; STATE.cam = 'debug'; CAM.target.set(x, y, z); CAM.zoom = zm; updateCameraFrustum(); placeCamera(); }, courtToScreen(x, z) { const v = new V3(x, 0, z).project(camera); const r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; },
 };
 
 
