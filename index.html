@@ -290,12 +290,13 @@ if (Q.get('cam')) STATE.cam = Q.get('cam');
 
 /* =====================================================================
    画质档位 QUALITY TIERS  (2026-11-03)
-   A tier is defined by how many screen (CSS) pixels one art pixel covers — always an integer number of
-   device pixels, so the grid stays crisp. Art assets are authored in pixels-per-metre per tier; the art
+   A tier is defined by how many DEVICE pixels one art pixel covers (精细 2 · 标准 3 · 经典 4) — always an integer,
+   so the grid stays crisp. Device pixels, not CSS pixels: under OS display scaling (devicePixelRatio 1.5 / 2) the
+   tier keeps its pixel density instead of getting 1.5–2x coarser (at DPR 1 nothing changes). Art assets are authored in pixels-per-metre per tier; the art
    baseline is 标准 (mid, ~480 art px across a 1440-wide screen). Phones are sized by width instead.
    ===================================================================== */
 const TIERS = {
-  // px: CSS px per art px · phoneW: art px across a phone · court/grass/brick: texels per metre · band: goal-post stripe (m)
+  // px: device px per art px · phoneW: art px across a phone · court/grass/brick: texels per metre · band: goal-post stripe (m)
   // mb: court mip LOD bias (finer lines on finer tiers) · shadow: shadow-map size · ow: silhouette outline px
   low:  { name: '经典', px: 4, phoneW: 240, court: 16, grass: 8,  brick: 8,  band: 0.33, mb: -0.25, shadow: 1024, ow: 1 },
   mid:  { name: '标准', px: 3, phoneW: 320, court: 24, grass: 12, brick: 12, band: 0.25, mb: -0.25, shadow: 1536, ow: 1 },
@@ -309,11 +310,12 @@ const QUAL = {
   log: [],                        // tier changes [{t, from, to, why}]
   win: [], since: 0, upBlock: 0, synthetic: false,
   get T() { return TIERS[this.tier]; },
-  // integer device pixels per art pixel for this window
+  // integer device pixels per art pixel for this window (wd = window width in device pixels)
+  maxW: 1280,                     // huge / high-DPR screens (4K, 2x Retina): never more than ~1280 art px across
   scale(wd, dpr) {
     const T = this.T;
-    let s = IS_PHONE ? Math.max(1, Math.round(wd / T.phoneW)) : Math.max(1, Math.round(T.px * dpr));
-    while (wd / s > 1100) s++;    // huge screens: never more than ~1100 art px across
+    let s = IS_PHONE ? Math.max(1, Math.round(wd / T.phoneW)) : T.px;
+    while (wd / s > this.maxW) s++;
     return s;
   },
   register(fn) { this.rebake.push(fn); fn(this.T); },
